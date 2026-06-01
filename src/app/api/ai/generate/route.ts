@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { cookies } from "next/headers";
 import { createAIProvider, getTemplate, ConversationMessage } from "@/lib/ai/provider";
 import { validatePlan, sanitizePlan } from "@/lib/discord/validate";
-import { checkRateLimit } from "@/lib/rate-limit";
+import { checkRateLimit, incrementRateLimit } from "@/lib/rate-limit";
 
 export async function POST(req: NextRequest) {
   const cookieStore = await cookies();
@@ -21,8 +21,8 @@ export async function POST(req: NextRequest) {
 
   try {
     const body = await req.json();
-    const { prompt, template, messages, mode } = body;
-    const provider = createAIProvider();
+    const { prompt, template, messages, mode, model } = body;
+    const provider = createAIProvider(model);
 
     if (mode === "plan") {
       const text = await provider.plan(messages as ConversationMessage[]);
@@ -39,6 +39,8 @@ export async function POST(req: NextRequest) {
       if (result.type !== "plan") {
         return NextResponse.json({ error: "Unexpected response from AI" }, { status: 500 });
       }
+
+      await incrementRateLimit(userId);
 
       const validation = validatePlan(result.plan);
       if (!validation.valid) {
@@ -78,6 +80,7 @@ export async function POST(req: NextRequest) {
     }
 
     const sanitized = sanitizePlan(plan);
+    await incrementRateLimit(userId);
     return NextResponse.json({
       type: "plan",
       plan: sanitized,

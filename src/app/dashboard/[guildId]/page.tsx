@@ -62,6 +62,7 @@ export default function GuildDashboard() {
   const [conversation, setConversation] = useState<{ role: "user" | "assistant"; content: string }[]>([]);
   const [expandedChanges, setExpandedChanges] = useState<Set<string>>(new Set());
   const [mode, setMode] = useState<"plan" | "build">("build");
+  const [model, setModel] = useState("nemotron");
 
   function timeAgo(ts: number) {
     const s = Math.floor((Date.now() - ts) / 1000);
@@ -108,7 +109,10 @@ export default function GuildDashboard() {
       .then((data) => {
         if (data.guild) {
           setGuild(data.guild);
-          if (!data.guild.bot_installed) setBotMissing(true);
+          if (!data.guild.bot_installed) {
+            setBotMissing(true);
+            setTimeout(() => setShowInviteDialog(true), 500);
+          }
         }
         setVersions(data.versions || []);
         setPageLoading(false);
@@ -149,7 +153,7 @@ export default function GuildDashboard() {
       const res = await fetch("/api/ai/generate", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ messages, mode }),
+        body: JSON.stringify({ messages, mode, model }),
       });
 
       setProgress(70);
@@ -191,7 +195,7 @@ export default function GuildDashboard() {
     } finally {
       setLoading(false);
     }
-  }, [prompt, conversation, mode]);
+  }, [prompt, conversation, mode, model]);
 
   const handleTemplate = (templateId: string) => {
     const templates: Record<string, string> = {
@@ -343,16 +347,6 @@ export default function GuildDashboard() {
             <ArrowLeft className="w-4 h-4" />
           </Button>
           <span className="text-sm font-medium text-zinc-300">{guild.name}</span>
-          <div className="flex items-center gap-1 ml-4 bg-zinc-900 rounded-lg p-0.5 border border-zinc-800">
-            <button
-              onClick={() => setMode("plan")}
-              className={`px-3 py-1 text-xs rounded-md transition-colors ${mode === "plan" ? "bg-blue-600 text-white" : "text-zinc-500 hover:text-zinc-300"}`}
-            >Plan</button>
-            <button
-              onClick={() => setMode("build")}
-              className={`px-3 py-1 text-xs rounded-md transition-colors ${mode === "build" ? "bg-blue-600 text-white" : "text-zinc-500 hover:text-zinc-300"}`}
-            >Build</button>
-          </div>
         </div>
         {botMissing && (
           <Button variant="outline" size="sm" className="border-amber-500/50 text-amber-400 h-7 text-xs" onClick={() => setShowInviteDialog(true)}>
@@ -477,7 +471,12 @@ export default function GuildDashboard() {
             {plan && botMissing && (
               <div className="bg-amber-500/10 border border-amber-500/20 rounded-lg p-3 text-center">
                 <p className="text-[11px] text-amber-400 font-medium mb-1">Bot not invited</p>
-                <p className="text-[10px] text-zinc-500">Invite the bot to apply changes</p>
+                <p className="text-[10px] text-zinc-500 mb-2">Invite the bot to apply changes</p>
+                <Button
+                  size="sm"
+                  onClick={() => setShowInviteDialog(true)}
+                  className="bg-amber-600 hover:bg-amber-700 text-white text-[10px] h-7"
+                >Invite Bot</Button>
               </div>
             )}
           </div>
@@ -560,6 +559,27 @@ export default function GuildDashboard() {
               >
                 {loading ? "..." : "Commit"}
               </Button>
+            </div>
+            <div className="flex gap-2 mt-2">
+              <div className="flex items-center gap-1 bg-zinc-900 rounded-lg p-0.5 border border-zinc-800">
+                <button
+                  onClick={() => setMode("plan")}
+                  className={`px-3 py-1 text-xs rounded-md transition-colors ${mode === "plan" ? "bg-blue-600 text-white" : "text-zinc-500 hover:text-zinc-300"}`}
+                >Plan</button>
+                <button
+                  onClick={() => setMode("build")}
+                  className={`px-3 py-1 text-xs rounded-md transition-colors ${mode === "build" ? "bg-blue-600 text-white" : "text-zinc-500 hover:text-zinc-300"}`}
+                >Build</button>
+              </div>
+              <select
+                value={model}
+                onChange={(e) => setModel(e.target.value)}
+                className="bg-zinc-900 border border-zinc-800 text-zinc-300 text-xs rounded-lg px-2 py-1 focus:outline-none focus:border-blue-500/50"
+              >
+                <option value="nemotron">Nemotron 49B</option>
+                <option value="llama-8b">Llama 8B</option>
+                <option value="mixtral">Mixtral 8x7B</option>
+              </select>
             </div>
             <p className="text-[10px] text-zinc-700 mt-1 text-center">Enter to send · Shift+Enter for new line</p>
           </div>

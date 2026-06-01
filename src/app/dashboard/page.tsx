@@ -107,7 +107,13 @@ export default function DashboardPage() {
                 >
                   <Card
                     className="bg-zinc-900/50 border-zinc-800 p-6 hover:border-blue-500/30 transition-all cursor-pointer group relative overflow-hidden"
-                    onClick={() => router.push(`/dashboard/${guild.id}`)}
+                    onClick={() => {
+                      if (!guild.bot_installed) {
+                        const inviteUrl = `https://discord.com/api/oauth2/authorize?client_id=${process.env.NEXT_PUBLIC_DISCORD_CLIENT_ID}&permissions=8&scope=bot%20applications.commands&guild_id=${guild.id}`;
+                        window.open(inviteUrl, "_blank");
+                      }
+                      router.push(`/dashboard/${guild.id}`);
+                    }}
                   >
                     <div className="flex items-center gap-4">
                       <div className="w-12 h-12 rounded-full bg-zinc-800 flex items-center justify-center text-lg font-bold text-zinc-400 overflow-hidden">

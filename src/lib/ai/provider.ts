@@ -11,6 +11,21 @@ export type ConverseResult =
   | { type: "clarify"; questions: string[] }
   | { type: "plan"; plan: ServerPlan };
 
+const MODELS = {
+  "nemotron": { id: "nvidia/llama-3.3-nemotron-super-49b-v1", provider: "nvidia" },
+  "llama-8b": { id: "meta/llama-3.1-8b-instruct", provider: "nvidia" },
+  "mixtral": { id: "mistralai/mixtral-8x7b-instruct-v0.1", provider: "nvidia" },
+} as const;
+
+export type ModelKey = keyof typeof MODELS;
+
+export function getAvailableModels() {
+  return Object.entries(MODELS).map(([key, val]) => ({
+    key,
+    label: val.id,
+  }));
+}
+
 interface AIProvider {
   generate(prompt: string): Promise<ServerPlan>;
   converse(messages: ConversationMessage[]): Promise<ConverseResult>;
@@ -19,9 +34,11 @@ interface AIProvider {
 
 class NVIDIAProvider implements AIProvider {
   private apiKey: string;
+  private modelId: string;
 
-  constructor() {
+  constructor(modelKey: string = "nemotron") {
     this.apiKey = process.env.NVIDIA_API_KEY || "";
+    this.modelId = MODELS[modelKey as ModelKey]?.id || MODELS.nemotron.id;
   }
 
   async generate(prompt: string): Promise<ServerPlan> {
@@ -35,7 +52,7 @@ Available permissions: CREATE_INSTANT_INVITE, KICK_MEMBERS, BAN_MEMBERS, ADMINIS
 Rules: lowercase-kebab text channels, Title Case voice channels, UPPERCASE categories. Always include @everyone. Generate 3-8 roles, 4-10 text channels, 2-5 voice channels. Every channel belongs to a category.`;
 
     const body = {
-      model: "nvidia/llama-3.3-nemotron-super-49b-v1",
+      model: this.modelId,
       messages: [
         { role: "system", content: systemPrompt },
         { role: "user", content: `Generate a Discord server structure for: ${prompt}. Return ONLY the JSON object.` },
@@ -105,7 +122,7 @@ Available permissions: CREATE_INSTANT_INVITE, KICK_MEMBERS, BAN_MEMBERS, ADMINIS
 Rules: lowercase-kebab text channels, Title Case voice channels, UPPERCASE categories. Always include @everyone. Generate 3-8 roles, 4-10 text channels, 2-5 voice channels. Every channel belongs to a category.`;
 
     const body = {
-      model: "nvidia/llama-3.3-nemotron-super-49b-v1",
+      model: this.modelId,
       messages: [
         { role: "system", content: systemPrompt },
         ...messages,
@@ -159,7 +176,7 @@ Rules: lowercase-kebab text channels, Title Case voice channels, UPPERCASE categ
     const systemPrompt = `You are a Discord server consultant. Discuss server structure ideas conversationally. Keep responses short (2-5 sentences). No markdown formatting unless essential. No bullet lists unless listing 3+ items. Be direct and practical.`;
 
     const body = {
-      model: "nvidia/llama-3.3-nemotron-super-49b-v1",
+      model: this.modelId,
       messages: [
         { role: "system", content: systemPrompt },
         ...messages,
@@ -307,9 +324,9 @@ Rules: lowercase-kebab text channels, Title Case voice channels, UPPERCASE categ
   }
 }
 
-export function createAIProvider(): AIProvider {
+export function createAIProvider(modelKey?: string): AIProvider {
   if (process.env.NVIDIA_API_KEY) {
-    return new NVIDIAProvider();
+    return new NVIDIAProvider(modelKey);
   }
   if (process.env.FALLBACK_AI_API_KEY) {
     return new FallbackProvider();
