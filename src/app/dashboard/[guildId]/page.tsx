@@ -15,7 +15,7 @@ import {
   ArrowLeft, Bot, AlertCircle, CheckCircle2, 
   Sparkles, Save, RotateCcw, Download, 
   Eye, EyeOff, Edit3, Terminal, Play,
-  MessageSquare, History, ChevronRight, GripVertical, X
+  ChevronDown, ChevronRight, GripVertical, X
 } from "lucide-react";
 import {
   Dialog,
@@ -59,6 +59,23 @@ export default function GuildDashboard() {
 
   const [chatHistory, setChatHistory] = useState<{ prompt: string; plan: ServerPlan; timestamp: number }[]>([]);
   const [conversation, setConversation] = useState<{ role: "user" | "assistant"; content: string }[]>([]);
+  const [expandedChanges, setExpandedChanges] = useState<Set<string>>(new Set());
+
+  function timeAgo(ts: number) {
+    const s = Math.floor((Date.now() - ts) / 1000);
+    if (s < 60) return "just now";
+    if (s < 3600) return `${Math.floor(s / 60)}m ago`;
+    if (s < 86400) return `${Math.floor(s / 3600)}h ago`;
+    return `${Math.floor(s / 86400)}d ago`;
+  }
+
+  function toggleExpanded(id: string) {
+    setExpandedChanges((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id); else next.add(id);
+      return next;
+    });
+  }
 
   useEffect(() => {
     const saved = localStorage.getItem(`chat_history_${guildId}`);
@@ -279,8 +296,8 @@ export default function GuildDashboard() {
   }
 
   return (
-    <div className="min-h-screen bg-black flex flex-col">
-      <div className="flex items-center justify-between px-4 py-3 border-b border-zinc-800">
+    <div className="h-screen bg-black flex flex-col overflow-hidden">
+      <div className="flex items-center justify-between px-4 py-3 border-b border-zinc-800 shrink-0">
         <div className="flex items-center gap-3">
           <Button variant="ghost" size="icon" className="w-8 h-8" onClick={() => router.push("/dashboard")}>
             <ArrowLeft className="w-4 h-4" />
@@ -298,101 +315,122 @@ export default function GuildDashboard() {
       </div>
 
       <div className="flex-1 flex overflow-hidden">
-        <div className="w-72 border-r border-zinc-800 flex flex-col bg-zinc-950/40">
-          <div className="p-4 border-b border-zinc-800">
-            <h3 className="text-xs font-semibold text-zinc-500 uppercase tracking-wider flex items-center gap-1.5">
-              <CheckCircle2 className="w-3 h-3 text-blue-400" />
-              Changes
-            </h3>
+        <div className="w-80 border-r border-zinc-800 flex flex-col bg-zinc-950/40 shrink-0">
+          <div className="p-3 border-b border-zinc-800 shrink-0">
+            <h3 className="text-xs font-semibold text-zinc-500 uppercase tracking-wider">Changes</h3>
           </div>
-          {plan ? (
-            <ScrollArea className="flex-1 p-4">
-              <div className="space-y-4">
-                <div>
-                  <p className="text-[10px] text-purple-400 uppercase tracking-wider font-semibold mb-2">Roles ({plan.roles.length})</p>
-                  <div className="space-y-1">
-                    {plan.roles.map((r, i) => (
-                      <div key={i} className="flex items-center gap-2 text-xs text-zinc-400">
-                        <div className="w-1.5 h-1.5 rounded-full shrink-0" style={{ backgroundColor: r.color || "#5865F2" }} />
-                        <span>{r.name}</span>
-                      </div>
-                    ))}
+          <div className="flex-1 overflow-y-auto p-3 space-y-2">
+            {plan && (
+              <div className="bg-zinc-900/60 border border-blue-500/20 rounded-lg overflow-hidden">
+                <button
+                  onClick={() => toggleExpanded("pending")}
+                  className="w-full flex items-center justify-between p-3 hover:bg-zinc-800/40 transition-colors text-left"
+                >
+                  <div className="flex items-center gap-2 min-w-0">
+                    {expandedChanges.has("pending") ? <ChevronDown className="w-3 h-3 text-zinc-500 shrink-0" /> : <ChevronRight className="w-3 h-3 text-zinc-500 shrink-0" />}
+                    <div className="min-w-0">
+                      <p className="text-xs font-medium text-blue-300 truncate">Pending Plan</p>
+                      <p className="text-[10px] text-zinc-500">just now</p>
+                    </div>
                   </div>
-                </div>
-                <div>
-                  <p className="text-[10px] text-blue-400 uppercase tracking-wider font-semibold mb-2">Text Channels ({plan.channels.text.length})</p>
-                  <div className="flex flex-wrap gap-1">
-                    {plan.channels.text.map((ch, i) => (
-                      <Badge key={i} className="text-[10px] bg-zinc-900 border-zinc-700 text-zinc-400">
-                        #{ch}
-                      </Badge>
-                    ))}
-                  </div>
-                </div>
-                <div>
-                  <p className="text-[10px] text-green-400 uppercase tracking-wider font-semibold mb-2">Voice Channels ({plan.channels.voice.length})</p>
-                  <div className="flex flex-wrap gap-1">
-                    {plan.channels.voice.map((ch, i) => (
-                      <Badge key={i} className="text-[10px] bg-zinc-900 border-zinc-700 text-zinc-400">
-                        🔊 {ch}
-                      </Badge>
-                    ))}
-                  </div>
-                </div>
-                <div>
-                  <p className="text-[10px] text-cyan-400 uppercase tracking-wider font-semibold mb-2">Categories ({plan.category_structure.length})</p>
-                  <div className="space-y-1.5">
-                    {plan.category_structure.map((cat, i) => (
-                      <div key={i} className="bg-zinc-900/50 border border-zinc-800 rounded p-2">
-                        <p className="text-xs text-zinc-300 font-medium">{cat.name}</p>
-                        <div className="flex flex-wrap gap-1 mt-1">
-                          {cat.channels.map((ch, j) => (
-                            <span key={j} className="text-[10px] text-zinc-600">#{ch}</span>
-                          ))}
+                  <span className="text-[10px] text-zinc-600 shrink-0 ml-2">{plan.roles.length} roles · {plan.channels.text.length + plan.channels.voice.length} ch</span>
+                </button>
+                {expandedChanges.has("pending") && (
+                  <div className="px-3 pb-3 space-y-2">
+                    <div className="border-t border-zinc-800 pt-2 space-y-1.5">
+                      {plan.roles.map((r, i) => (
+                        <div key={i} className="flex items-center gap-1.5 text-[11px] text-zinc-400">
+                          <div className="w-1.5 h-1.5 rounded-full shrink-0" style={{ backgroundColor: r.color || "#5865F2" }} />
+                          <span className="truncate">{r.name}</span>
                         </div>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-                {warnings.length > 0 && (
-                  <div className="bg-amber-500/10 border border-amber-500/20 rounded p-2">
-                    <p className="text-[10px] text-amber-400 font-medium">Warnings</p>
-                    {warnings.map((w, i) => (
-                      <p key={i} className="text-[10px] text-zinc-500">{w}</p>
-                    ))}
+                      ))}
+                      {plan.channels.text.map((ch, i) => (
+                        <div key={i} className="text-[11px] text-zinc-500 pl-3"># {ch}</div>
+                      ))}
+                      {plan.channels.voice.map((ch, i) => (
+                        <div key={i} className="text-[11px] text-zinc-500 pl-3">🔊 {ch}</div>
+                      ))}
+                    </div>
+                    <div className="flex gap-1.5 pt-1">
+                      <Button variant="outline" size="sm" onClick={() => setEditing(!editing)} className="text-[10px] h-7 text-zinc-400 border-zinc-700 flex-1">
+                        {editing ? <EyeOff className="w-3 h-3 mr-1" /> : <Edit3 className="w-3 h-3 mr-1" />}
+                        {editing ? "View" : "Edit"}
+                      </Button>
+                      <Button variant="outline" size="sm" onClick={handleSaveVersion} className="text-[10px] h-7 text-zinc-400 border-zinc-700 flex-1">
+                        <Save className="w-3 h-3 mr-1" />Save
+                      </Button>
+                    </div>
+                    <Button
+                      onClick={() => setShowConfirm(true)}
+                      disabled={executing || botMissing}
+                      className="w-full bg-green-600 hover:bg-green-700 text-white h-8 text-xs"
+                    >
+                      <Play className="w-3 h-3 mr-1" />
+                      {executing ? "Applying..." : "Apply to Server"}
+                    </Button>
                   </div>
                 )}
-                <div className="pt-2 border-t border-zinc-800">
-                  <div className="flex gap-2">
-                    <Button variant="outline" size="sm" onClick={() => setEditing(!editing)} className="text-[10px] h-7 text-zinc-400 border-zinc-700 flex-1">
-                      {editing ? <EyeOff className="w-3 h-3 mr-1" /> : <Edit3 className="w-3 h-3 mr-1" />}
-                      {editing ? "View" : "Edit"}
-                    </Button>
-                    <Button variant="outline" size="sm" onClick={handleSaveVersion} className="text-[10px] h-7 text-zinc-400 border-zinc-700 flex-1">
-                      <Save className="w-3 h-3 mr-1" />
-                      Save
-                    </Button>
-                  </div>
-                  <Button
-                    onClick={() => setShowConfirm(true)}
-                    disabled={executing || botMissing}
-                    className="w-full bg-green-600 hover:bg-green-700 text-white h-8 text-xs mt-2"
-                  >
-                    <Play className="w-3 h-3 mr-1" />
-                    {executing ? "Applying..." : "Apply to Server"}
-                  </Button>
-                </div>
               </div>
-            </ScrollArea>
-          ) : (
-            <div className="flex-1 flex items-center justify-center p-4">
-              <p className="text-[10px] text-zinc-700 text-center">No pending changes<br />Generate a plan first</p>
-            </div>
-          )}
+            )}
+
+            {versions.length > 0 && (
+              <div className="space-y-2">
+                {plan && <div className="border-t border-zinc-800 pt-1" />}
+                {versions.map((v) => (
+                  <div key={v.id} className="bg-zinc-900/30 border border-zinc-800 rounded-lg overflow-hidden">
+                    <button
+                      onClick={() => toggleExpanded(v.id)}
+                      className="w-full flex items-center justify-between p-3 hover:bg-zinc-800/30 transition-colors text-left"
+                    >
+                      <div className="flex items-center gap-2 min-w-0">
+                        {expandedChanges.has(v.id) ? <ChevronDown className="w-3 h-3 text-zinc-500 shrink-0" /> : <ChevronRight className="w-3 h-3 text-zinc-500 shrink-0" />}
+                        <div className="min-w-0">
+                          <p className="text-xs font-medium text-zinc-300 truncate">{v.version_name}</p>
+                          <p className="text-[10px] text-zinc-600">{timeAgo(new Date(v.created_at).getTime())}</p>
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-2 shrink-0 ml-2">
+                        <span className="text-[10px] text-zinc-600">{v.plan_json.roles.length} roles</span>
+                        <button
+                          onClick={(e) => { e.stopPropagation(); handleRestore(v); }}
+                          className="w-6 h-6 flex items-center justify-center rounded hover:bg-zinc-800 text-zinc-500 hover:text-blue-400 transition-colors"
+                          title="Reroll"
+                        >
+                          <RotateCcw className="w-3 h-3" />
+                        </button>
+                      </div>
+                    </button>
+                    {expandedChanges.has(v.id) && (
+                      <div className="px-3 pb-3 space-y-1.5 border-t border-zinc-800 pt-2">
+                        {v.plan_json.roles.map((r, i) => (
+                          <div key={i} className="flex items-center gap-1.5 text-[11px] text-zinc-400">
+                            <div className="w-1.5 h-1.5 rounded-full shrink-0" style={{ backgroundColor: r.color || "#5865F2" }} />
+                            <span className="truncate">{r.name}</span>
+                          </div>
+                        ))}
+                        {v.plan_json.channels.text.map((ch, i) => (
+                          <div key={i} className="text-[11px] text-zinc-500 pl-3"># {ch}</div>
+                        ))}
+                        {v.plan_json.channels.voice.map((ch, i) => (
+                          <div key={i} className="text-[11px] text-zinc-500 pl-3">🔊 {ch}</div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                ))}
+              </div>
+            )}
+
+            {!plan && versions.length === 0 && (
+              <div className="flex items-center justify-center h-32">
+                <p className="text-[11px] text-zinc-700 text-center">No changes yet<br />Generate a plan first</p>
+              </div>
+            )}
+          </div>
         </div>
 
         <div className="flex-1 flex flex-col min-w-0">
-          <div className="flex-1 overflow-y-auto py-4 px-4 space-y-3">
+          <div className="flex-1 overflow-y-auto px-4 py-4 space-y-3">
             {conversation.length === 0 && !plan && (
               <div className="text-center py-16">
                 <p className="text-zinc-600 text-sm">Describe your server below</p>
@@ -423,21 +461,17 @@ export default function GuildDashboard() {
             )}
           </div>
 
-          <div className="px-4 pb-4 pt-2 border-t border-zinc-800/50">
+          <div className="border-t border-zinc-800/50 px-4 py-3 shrink-0">
             {chatHistory.length > 0 && conversation.length === 0 && !plan && (
-              <div className="mb-3">
-                <p className="text-[10px] text-zinc-600 uppercase tracking-wider mb-2">Recent</p>
+              <div className="mb-2">
+                <p className="text-[10px] text-zinc-600 uppercase tracking-wider mb-1.5">Recent</p>
                 <div className="flex flex-wrap gap-1.5">
                   {chatHistory.slice(0, 5).map((item, i) => (
                     <Badge
                       key={i}
                       variant="outline"
                       className="cursor-pointer text-[10px] border-zinc-700 text-zinc-400 hover:border-zinc-500"
-                      onClick={() => {
-                        setPlan(item.plan);
-                        setPrompt(item.prompt);
-                        toast.success("Restored from history");
-                      }}
+                      onClick={() => { setPlan(item.plan); setPrompt(item.prompt); toast.success("Restored from history"); }}
                     >
                       {item.prompt.slice(0, 30)}...
                     </Badge>
@@ -461,36 +495,31 @@ export default function GuildDashboard() {
                   }}
                   className="bg-zinc-900 border border-zinc-700 text-white min-h-[44px] max-h-[300px] resize-none text-sm w-full rounded-lg px-3 py-2.5 focus:outline-none focus:border-blue-500/50 placeholder-zinc-600 overflow-y-auto"
                   rows={1}
-                  onKeyDown={(e) => {
-                    if (e.key === "Enter" && !e.shiftKey) {
-                      e.preventDefault();
-                      handleGenerate();
-                    }
-                  }}
+                  onKeyDown={(e) => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); handleGenerate(); } }}
                 />
                 <span className="absolute bottom-1.5 right-2 text-[10px] text-zinc-600">{prompt.length}/8064</span>
               </div>
               <Button
                 onClick={handleGenerate}
                 disabled={loading || !prompt.trim()}
-                className="bg-blue-600 hover:bg-blue-700 text-white h-[44px] px-5"
+                className="bg-blue-600 hover:bg-blue-700 text-white h-[44px] px-5 shrink-0"
               >
                 {loading ? "..." : "Commit"}
               </Button>
             </div>
-            <p className="text-[10px] text-zinc-700 mt-1.5 text-center">Enter to send · Shift+Enter for new line</p>
+            <p className="text-[10px] text-zinc-700 mt-1 text-center">Enter to send · Shift+Enter for new line</p>
           </div>
         </div>
 
-        <div className="w-72 border-l border-zinc-800 p-4 bg-zinc-950/40 flex flex-col">
-          <h3 className="text-xs font-semibold text-zinc-500 uppercase tracking-wider mb-3 flex items-center gap-1.5">
+        <div className="w-72 border-l border-zinc-800 p-4 bg-zinc-950/40 flex flex-col shrink-0 overflow-hidden">
+          <h3 className="text-xs font-semibold text-zinc-500 uppercase tracking-wider mb-3 flex items-center gap-1.5 shrink-0">
             <Terminal className="w-3 h-3 text-cyan-400" />
             Logs
           </h3>
           {executing && (
-            <Progress value={progress} className="mb-3 h-1 bg-zinc-800 [&>div]:bg-gradient-to-r [&>div]:from-blue-500 [&>div]:to-purple-500" />
+            <Progress value={progress} className="mb-3 h-1 bg-zinc-800 shrink-0 [&>div]:bg-gradient-to-r [&>div]:from-blue-500 [&>div]:to-purple-500" />
           )}
-          <ScrollArea className="flex-1">
+          <div className="flex-1 overflow-y-auto">
             <div className="font-mono text-[10px] space-y-1">
               {logs.length === 0 ? (
                 <p className="text-zinc-700">No activity yet</p>
@@ -499,14 +528,13 @@ export default function GuildDashboard() {
                   <div key={i} className={`flex items-start gap-1.5 ${
                     log.type === "error" ? "text-red-400" :
                     log.type === "ok" ? "text-green-400" :
-                    log.type === "sync" ? "text-cyan-400" :
-                    "text-zinc-400"
+                    log.type === "sync" ? "text-cyan-400" : "text-zinc-400"
                   }`}>
-                    <span className="shrink-0">
-                      {log.type === "ok" && <CheckCircle2 className="w-2.5 h-2.5 mt-0.5" />}
-                      {log.type === "error" && <AlertCircle className="w-2.5 h-2.5 mt-0.5" />}
-                      {log.type === "sync" && <Bot className="w-2.5 h-2.5 mt-0.5" />}
-                      {log.type === "done" && <CheckCircle2 className="w-2.5 h-2.5 mt-0.5" />}
+                    <span className="shrink-0 mt-0.5">
+                      {log.type === "ok" && <CheckCircle2 className="w-2.5 h-2.5" />}
+                      {log.type === "error" && <AlertCircle className="w-2.5 h-2.5" />}
+                      {log.type === "sync" && <Bot className="w-2.5 h-2.5" />}
+                      {log.type === "done" && <CheckCircle2 className="w-2.5 h-2.5" />}
                     </span>
                     <span>{log.message}</span>
                   </div>
@@ -514,7 +542,7 @@ export default function GuildDashboard() {
               )}
               <div ref={logEndRef} />
             </div>
-          </ScrollArea>
+          </div>
         </div>
       </div>
 
