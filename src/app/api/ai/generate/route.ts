@@ -1,8 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { cookies } from "next/headers";
-import { createAIProvider, getTemplate } from "@/lib/ai/provider";
+import { createAIProvider, getTemplate, ConversationMessage } from "@/lib/ai/provider";
 import { validatePlan, sanitizePlan } from "@/lib/discord/validate";
-import { ServerPlan } from "@/types";
 
 export async function POST(req: NextRequest) {
   const cookieStore = await cookies();
@@ -14,7 +13,32 @@ export async function POST(req: NextRequest) {
 
   try {
     const body = await req.json();
-    const { prompt, template } = body;
+    const { prompt, template, messages } = body;
+
+    const provider = createAIProvider();
+
+    if (messages && Array.isArray(messages)) {
+      const result = await provider.converse(messages as ConversationMessage[]);
+
+      if (result.type === "clarify") {
+        return NextResponse.json({ type: "clarify", questions: result.questions });
+      }
+
+      const validation = validatePlan(result.plan);
+      if (!validation.valid) {
+        return NextResponse.json({
+          error: "AI generated an invalid plan",
+          details: validation.errors,
+        }, { status: 422 });
+      }
+
+      const sanitized = sanitizePlan(result.plan);
+      return NextResponse.json({
+        type: "plan",
+        plan: sanitized,
+        warnings: validation.warnings,
+      });
+    }
 
     let finalPrompt = prompt;
     if (template) {
@@ -28,9 +52,7 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "Prompt is required" }, { status: 400 });
     }
 
-    const provider = createAIProvider();
     const plan = await provider.generate(finalPrompt);
-
     const validation = validatePlan(plan);
     if (!validation.valid) {
       return NextResponse.json({
@@ -40,8 +62,8 @@ export async function POST(req: NextRequest) {
     }
 
     const sanitized = sanitizePlan(plan);
-
     return NextResponse.json({
+      type: "plan",
       plan: sanitized,
       warnings: validation.warnings,
     });

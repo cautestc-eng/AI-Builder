@@ -2,8 +2,18 @@ import { ServerPlan } from "@/types";
 
 const NVIDIA_API_URL = "https://integrate.api.nvidia.com/v1";
 
+export interface ConversationMessage {
+  role: "system" | "user" | "assistant";
+  content: string;
+}
+
+export type ConverseResult =
+  | { type: "clarify"; questions: string[] }
+  | { type: "plan"; plan: ServerPlan };
+
 interface AIProvider {
   generate(prompt: string): Promise<ServerPlan>;
+  converse(messages: ConversationMessage[]): Promise<ConverseResult>;
 }
 
 class NVIDIAProvider implements AIProvider {
@@ -69,6 +79,76 @@ Rules: lowercase-kebab text channels, Title Case voice channels, UPPERCASE categ
       throw new Error(`Failed to parse AI JSON: ${e.message}. Raw: ${jsonMatch[0].slice(0, 300)}`);
     }
   }
+
+  async converse(messages: ConversationMessage[]): Promise<ConverseResult> {
+    const systemPrompt = `You are a Discord server architect helping a user design a Discord server.
+
+Your job: if the request lacks important details, ask 1-3 clarifying questions. If enough info is available, generate the full server plan.
+
+## If you need more info
+Return ONLY this JSON (no extra text):
+{"type":"clarify","questions":["Question 1?","Question 2?","Question 3?"]}
+
+Ask questions about what's genuinely missing: game genre, member count, topic, competitive/casual, etc.
+
+## If you have enough info
+Return ONLY the server plan JSON (no wrapper, no extra text):
+{"roles":[{"name":"RoleName","permissions":["PERMISSION_NAME"],"color":"#hex"}],"channels":{"text":["channel-name"],"voice":["Voice Channel"]},"category_structure":[{"name":"CATEGORY","channels":["channel-name"]}]}
+
+Available permissions: CREATE_INSTANT_INVITE, KICK_MEMBERS, BAN_MEMBERS, ADMINISTRATOR, MANAGE_CHANNELS, MANAGE_GUILD, ADD_REACTIONS, VIEW_AUDIT_LOG, PRIORITY_SPEAKER, STREAM, VIEW_CHANNEL, SEND_MESSAGES, SEND_TTS_MESSAGES, MANAGE_MESSAGES, EMBED_LINKS, ATTACH_FILES, READ_MESSAGE_HISTORY, MENTION_EVERYONE, USE_EXTERNAL_EMOJIS, CONNECT, SPEAK, MUTE_MEMBERS, DEAFEN_MEMBERS, MOVE_MEMBERS, USE_VAD, CHANGE_NICKNAME, MANAGE_NICKNAMES, MANAGE_ROLES, MANAGE_WEBHOOKS, MANAGE_EMOJIS_AND_STICKERS, USE_APPLICATION_COMMANDS, MODERATE_MEMBERS
+
+Rules: lowercase-kebab text channels, Title Case voice channels, UPPERCASE categories. Always include @everyone. Generate 3-8 roles, 4-10 text channels, 2-5 voice channels. Every channel belongs to a category.`;
+
+    const body = {
+      model: "nvidia/llama-3.3-nemotron-super-49b-v1",
+      messages: [
+        { role: "system", content: systemPrompt },
+        ...messages,
+      ],
+      temperature: 0.1,
+      max_tokens: 1500,
+    };
+
+    const res = await fetch(`${NVIDIA_API_URL}/chat/completions`, {
+      method: "POST",
+      headers: {
+        "Authorization": `Bearer ${this.apiKey}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify(body),
+    });
+
+    if (!res.ok) {
+      const text = await res.text();
+      throw new Error(`NVIDIA API error: ${res.status} ${text}`);
+    }
+
+    const data = await res.json();
+    const content = data.choices?.[0]?.message?.content || "";
+
+    const jsonMatch = content.match(/\{[\s\S]*\}/);
+    if (!jsonMatch) {
+      throw new Error(`No JSON in AI response. Raw: ${content.slice(0, 500)}`);
+    }
+
+    const parsed = JSON.parse(jsonMatch[0]);
+
+    if (parsed.type === "clarify" && Array.isArray(parsed.questions)) {
+      return { type: "clarify", questions: parsed.questions };
+    }
+
+    return {
+      type: "plan",
+      plan: {
+        roles: parsed.roles || [],
+        channels: {
+          text: parsed.channels?.text || [],
+          voice: parsed.channels?.voice || [],
+        },
+        category_structure: parsed.category_structure || [],
+      },
+    };
+  }
 }
 
 class FallbackProvider implements AIProvider {
@@ -104,6 +184,62 @@ class FallbackProvider implements AIProvider {
     const jsonMatch = content.match(/\{[\s\S]*\}/);
     if (!jsonMatch) throw new Error("No JSON in fallback response");
     return JSON.parse(jsonMatch[0]);
+  }
+
+  async converse(messages: ConversationMessage[]): Promise<ConverseResult> {
+    const systemPrompt = `You are a Discord server architect helping a user design a Discord server.
+
+If the request lacks important details, ask 1-3 clarifying questions.
+If enough info is available, generate the full server plan.
+
+## If you need more info
+Return ONLY this JSON:
+{"type":"clarify","questions":["Question 1?","Question 2?"]}
+
+## If you have enough info
+Return ONLY the server plan JSON:
+{"roles":[{"name":"RoleName","permissions":["PERMISSION_NAME"],"color":"#hex"}],"channels":{"text":["channel-name"],"voice":["Voice Channel"]},"category_structure":[{"name":"CATEGORY","channels":["channel-name"]}]}
+
+Rules: lowercase-kebab text channels, Title Case voice channels, UPPERCASE categories. Always include @everyone. Generate 3-8 roles, 4-10 text channels, 2-5 voice channels. Every channel belongs to a category.`;
+
+    const res = await fetch(`${this.baseUrl}/chat/completions`, {
+      method: "POST",
+      headers: {
+        "Authorization": `Bearer ${this.apiKey}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        model: process.env.FALLBACK_AI_MODEL || "gpt-4o-mini",
+        messages: [
+          { role: "system", content: systemPrompt },
+          ...messages,
+        ],
+        temperature: 0.2,
+        max_tokens: 2000,
+      }),
+    });
+
+    if (!res.ok) throw new Error(`Fallback AI error: ${res.status}`);
+    const data = await res.json();
+    const content = data.choices?.[0]?.message?.content || "";
+    const jsonMatch = content.match(/\{[\s\S]*\}/);
+    if (!jsonMatch) throw new Error("No JSON in fallback response");
+
+    const parsed = JSON.parse(jsonMatch[0]);
+    if (parsed.type === "clarify" && Array.isArray(parsed.questions)) {
+      return { type: "clarify", questions: parsed.questions };
+    }
+    return {
+      type: "plan",
+      plan: {
+        roles: parsed.roles || [],
+        channels: {
+          text: parsed.channels?.text || [],
+          voice: parsed.channels?.voice || [],
+        },
+        category_structure: parsed.category_structure || [],
+      },
+    };
   }
 }
 
