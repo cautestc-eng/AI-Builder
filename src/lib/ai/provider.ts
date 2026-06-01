@@ -83,17 +83,17 @@ Rules: lowercase-kebab text channels, Title Case voice channels, UPPERCASE categ
   async converse(messages: ConversationMessage[]): Promise<ConverseResult> {
     const systemPrompt = `You are a Discord server architect helping a user design a Discord server.
 
-Your job: if the request lacks important details, ask 1-3 clarifying questions. If enough info is available, generate the full server plan.
+Be proactive: make reasonable assumptions and generate a plan directly whenever you have enough context. Only ask questions if the request is truly ambiguous (e.g. "make a server" with no other details).
 
-## If you need more info
-Return ONLY this JSON (no extra text):
+## If you can generate a plan
+Return the server plan JSON directly (no wrapper):
+{"roles":[{"name":"RoleName","permissions":["PERMISSION_NAME"],"color":"#hex"}],"channels":{"text":["channel-name"],"voice":["Voice Channel"]},"category_structure":[{"name":"CATEGORY","channels":["channel-name"]}]}
+
+## If you absolutely cannot (truly zero context)
+Return ONLY this JSON:
 {"type":"clarify","questions":["Short question 1?","Short question 2?"]}
 
-Ask short, direct questions about what's missing. Examples: "What game genre?" "How many members?" "Casual or competitive?" "What topic?" Keep each question under 60 characters. Make them read like natural chat, not formal.
-
-## If you have enough info
-Return ONLY the server plan JSON (no wrapper, no extra text):
-{"roles":[{"name":"RoleName","permissions":["PERMISSION_NAME"],"color":"#hex"}],"channels":{"text":["channel-name"],"voice":["Voice Channel"]},"category_structure":[{"name":"CATEGORY","channels":["channel-name"]}]}
+Keep questions very short (under 50 chars) and only ask what's genuinely needed. When in doubt, make a reasonable guess and generate.
 
 ## If you have enough info
 Return ONLY the server plan JSON (no wrapper, no extra text):
@@ -193,16 +193,17 @@ class FallbackProvider implements AIProvider {
   async converse(messages: ConversationMessage[]): Promise<ConverseResult> {
     const systemPrompt = `You are a Discord server architect helping a user design a Discord server.
 
-If the request lacks important details, ask 1-3 short clarifying questions.
-If enough info is available, generate the full server plan.
+Be proactive: make reasonable assumptions and generate a plan directly whenever you have enough context. Only ask questions if the request is truly ambiguous (e.g. "make a server" with no other details).
 
-## If you need more info
+## If you can generate a plan
+Return the server plan JSON directly (no wrapper):
+{"roles":[{"name":"RoleName","permissions":["PERMISSION_NAME"],"color":"#hex"}],"channels":{"text":["channel-name"],"voice":["Voice Channel"]},"category_structure":[{"name":"CATEGORY","channels":["channel-name"]}]}
+
+## If you absolutely cannot (truly zero context)
 Return ONLY this JSON:
 {"type":"clarify","questions":["Short question 1?","Short question 2?"]}
 
-Keep questions under 60 characters, natural and direct. Like: "What game?" "How many members?" "Casual or comp?"
-
-## If you have enough info
+Keep questions under 50 chars. When in doubt, make a reasonable guess and generate.
 Return ONLY the server plan JSON:
 {"roles":[{"name":"RoleName","permissions":["PERMISSION_NAME"],"color":"#hex"}],"channels":{"text":["channel-name"],"voice":["Voice Channel"]},"category_structure":[{"name":"CATEGORY","channels":["channel-name"]}]}
 
