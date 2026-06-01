@@ -87,9 +87,13 @@ Your job: if the request lacks important details, ask 1-3 clarifying questions. 
 
 ## If you need more info
 Return ONLY this JSON (no extra text):
-{"type":"clarify","questions":["Question 1?","Question 2?","Question 3?"]}
+{"type":"clarify","questions":["Short question 1?","Short question 2?"]}
 
-Ask questions about what's genuinely missing: game genre, member count, topic, competitive/casual, etc.
+Ask short, direct questions about what's missing. Examples: "What game genre?" "How many members?" "Casual or competitive?" "What topic?" Keep each question under 60 characters. Make them read like natural chat, not formal.
+
+## If you have enough info
+Return ONLY the server plan JSON (no wrapper, no extra text):
+{"roles":[{"name":"RoleName","permissions":["PERMISSION_NAME"],"color":"#hex"}],"channels":{"text":["channel-name"],"voice":["Voice Channel"]},"category_structure":[{"name":"CATEGORY","channels":["channel-name"]}]}
 
 ## If you have enough info
 Return ONLY the server plan JSON (no wrapper, no extra text):
@@ -189,12 +193,14 @@ class FallbackProvider implements AIProvider {
   async converse(messages: ConversationMessage[]): Promise<ConverseResult> {
     const systemPrompt = `You are a Discord server architect helping a user design a Discord server.
 
-If the request lacks important details, ask 1-3 clarifying questions.
+If the request lacks important details, ask 1-3 short clarifying questions.
 If enough info is available, generate the full server plan.
 
 ## If you need more info
 Return ONLY this JSON:
-{"type":"clarify","questions":["Question 1?","Question 2?"]}
+{"type":"clarify","questions":["Short question 1?","Short question 2?"]}
+
+Keep questions under 60 characters, natural and direct. Like: "What game?" "How many members?" "Casual or comp?"
 
 ## If you have enough info
 Return ONLY the server plan JSON:

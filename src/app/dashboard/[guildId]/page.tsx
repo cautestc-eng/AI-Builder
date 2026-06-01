@@ -252,6 +252,7 @@ export default function GuildDashboard() {
     setPlan(newPlan);
   };
 
+  const [activeView, setActiveView] = useState<"chat" | "review">("chat");
   const inviteBotUrl = `https://discord.com/api/oauth2/authorize?client_id=${process.env.NEXT_PUBLIC_DISCORD_CLIENT_ID}&permissions=8&scope=bot%20applications.commands&guild_id=${guildId}`;
 
   if (pageLoading) {
@@ -271,22 +272,44 @@ export default function GuildDashboard() {
   }
 
   return (
-    <div className="min-h-screen bg-black">
-      <div className="flex items-center justify-between px-6 py-4 border-b border-zinc-800">
-        <div className="flex items-center gap-4">
-          <Button variant="ghost" size="icon" onClick={() => router.push("/dashboard")}>
+    <div className="min-h-screen bg-black flex flex-col">
+      <div className="flex items-center justify-between px-4 py-3 border-b border-zinc-800">
+        <div className="flex items-center gap-3">
+          <Button variant="ghost" size="icon" className="w-8 h-8" onClick={() => router.push("/dashboard")}>
             <ArrowLeft className="w-4 h-4" />
           </Button>
-          <div>
-            <h1 className="text-lg font-bold text-white">{guild.name}</h1>
-            <p className="text-xs text-zinc-500">Server Dashboard</p>
-          </div>
+          <span className="text-sm font-medium text-zinc-300">{guild.name}</span>
+        </div>
+        <div className="flex items-center gap-1 bg-zinc-900 rounded-lg p-0.5 border border-zinc-800">
+          {["Build", "DeepSeek", "Default"].map((m) => (
+            <button
+              key={m}
+              className={`px-3 py-1 text-xs rounded-md transition-colors ${
+                activeView === "chat" && m === "Build"
+                  ? "bg-zinc-800 text-white"
+                  : "text-zinc-500 hover:text-zinc-300"
+              }`}
+              onClick={() => setActiveView("chat")}
+            >
+              {m}
+            </button>
+          ))}
         </div>
         <div className="flex items-center gap-2">
+          {plan && (
+            <button
+              onClick={() => setActiveView(activeView === "review" ? "chat" : "review")}
+              className={`px-3 py-1 text-xs rounded-md transition-colors ${
+                activeView === "review" ? "bg-blue-600 text-white" : "text-zinc-500 hover:text-zinc-300"
+              }`}
+            >
+              Review
+            </button>
+          )}
           {botMissing && (
             <a href={inviteBotUrl} target="_blank" rel="noopener noreferrer">
-              <Button variant="outline" size="sm" className="border-amber-500/50 text-amber-400">
-                <Bot className="w-4 h-4 mr-2" />
+              <Button variant="outline" size="sm" className="border-amber-500/50 text-amber-400 h-7 text-xs">
+                <Bot className="w-3 h-3 mr-1" />
                 Invite Bot
               </Button>
             </a>
@@ -294,207 +317,137 @@ export default function GuildDashboard() {
         </div>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-0" style={{ height: "calc(100vh - 61px)" }}>
-        <div className="border-r border-zinc-800 p-4 flex flex-col">
-          <h2 className="text-sm font-semibold text-zinc-400 uppercase tracking-wider mb-4">
-            Prompt Engine
-          </h2>
-          {conversation.length > 0 && (
-            <div className="mb-3">
-              <ScrollArea className="max-h-[180px] pr-2">
-                <div className="space-y-2">
-                  {conversation.map((msg, i) => (
-                    <div key={i} className={`flex ${msg.role === "user" ? "justify-end" : "justify-start"}`}>
-                      <div className={`rounded-lg px-3 py-2 text-xs max-w-[90%] whitespace-pre-wrap ${
-                        msg.role === "user"
-                          ? "bg-blue-600/30 border border-blue-500/30 text-blue-200"
-                          : "bg-purple-600/20 border border-purple-500/20 text-purple-200"
-                      }`}>
-                        {msg.content}
-                      </div>
-                    </div>
-                  ))}
+      <div className="flex-1 flex overflow-hidden">
+        {activeView === "chat" && (
+          <div className="flex-1 flex flex-col max-w-3xl mx-auto w-full px-4">
+            <div className="flex-1 overflow-y-auto py-4 space-y-3">
+              {conversation.length === 0 && !plan && (
+                <div className="text-center py-16">
+                  <p className="text-zinc-600 text-sm">Describe your server below</p>
+                  <p className="text-zinc-700 text-xs mt-1">The AI will ask questions if it needs more info</p>
                 </div>
-              </ScrollArea>
-              <Separator className="mt-3 mb-3 bg-zinc-800" />
-            </div>
-          )}
-          <Textarea
-            placeholder={conversation.length > 0 ? "Type your answers here..." : "Describe your Discord server..."}
-            value={prompt}
-            onChange={(e) => setPrompt(e.target.value)}
-            className="bg-zinc-900/50 border-zinc-700 text-white min-h-[80px] resize-none mb-3"
-          />
-          <div className="flex flex-wrap gap-2 mb-3">
-            {TEMPLATES.map((t) => (
-              <Badge
-                key={t.id}
-                variant="outline"
-                className="cursor-pointer hover:bg-zinc-800 text-xs py-1 px-3 border-zinc-700"
-                onClick={() => handleTemplate(t.id)}
-              >
-                {t.label}
-              </Badge>
-            ))}
-          </div>
-          <Button
-            onClick={handleGenerate}
-            disabled={loading || !prompt.trim()}
-            className="w-full bg-blue-600 hover:bg-blue-700 text-white mb-2"
-          >
-            {loading ? "..." : "Commit"}
-          </Button>
-
-          <Separator className="my-4 bg-zinc-800" />
-
-          {chatHistory.length > 0 && (
-            <>
-              <h3 className="text-xs font-semibold text-zinc-500 uppercase tracking-wider mb-3 flex items-center gap-1">
-                <History className="w-3 h-3" />
-                Chat History
-              </h3>
-              <ScrollArea className="max-h-[160px] mb-4">
-                <div className="space-y-1">
-                  {chatHistory.map((item, i) => (
-                    <Card
-                      key={i}
-                      className="bg-zinc-900/20 border-zinc-800 p-2 cursor-pointer hover:border-purple-500/30 transition-colors"
-                      onClick={() => {
-                        setPlan(item.plan);
-                        setPrompt(item.prompt);
-                        toast.success("Restored from history");
-                      }}
-                    >
-                      <p className="text-xs text-zinc-300 line-clamp-1">{item.prompt}</p>
-                      <p className="text-[10px] text-zinc-600 font-mono mt-1">{new Date(item.timestamp).toLocaleString()}</p>
-                    </Card>
-                  ))}
+              )}
+              {conversation.map((msg, i) => (
+                <div key={i} className={`flex ${msg.role === "user" ? "justify-end" : "justify-start"}`}>
+                  <div className={`rounded-2xl px-4 py-2.5 text-sm max-w-[80%] leading-relaxed ${
+                    msg.role === "user"
+                      ? "bg-blue-600 text-white"
+                      : "bg-zinc-800 text-zinc-200"
+                  }`}>
+                    {msg.content}
+                  </div>
                 </div>
-              </ScrollArea>
-              <Separator className="mb-4 bg-zinc-800" />
-            </>
-          )}
-
-          <h3 className="text-xs font-semibold text-zinc-500 uppercase tracking-wider mb-3">
-            Version History
-          </h3>
-          <ScrollArea className="flex-1">
-            <div className="space-y-2">
-              {versions.length === 0 ? (
-                <p className="text-xs text-zinc-600">No versions yet</p>
-              ) : (
-                versions.map((v) => (
-                  <Card
-                    key={v.id}
-                    className="bg-zinc-900/30 border-zinc-800 p-3 cursor-pointer hover:border-blue-500/30 transition-colors"
-                    onClick={() => handleRestore(v)}
-                  >
-                    <div className="flex items-center justify-between">
-                      <div>
-                        <p className="text-xs font-medium text-white">{v.version_name}</p>
-                        <p className="text-[10px] text-zinc-600 font-mono">
-                          {new Date(v.created_at).toLocaleDateString()}
-                        </p>
-                      </div>
-                      <div className="flex gap-1">
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          className="w-6 h-6"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            setPlan(v.plan_json);
-                          }}
-                        >
-                          <RotateCcw className="w-3 h-3" />
-                        </Button>
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          className="w-6 h-6"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            const blob = new Blob([JSON.stringify(v.plan_json, null, 2)], { type: "application/json" });
-                            const url = URL.createObjectURL(blob);
-                            const a = document.createElement("a");
-                            a.href = url;
-                            a.download = `${v.version_name}.json`;
-                            a.click();
-                          }}
-                        >
-                          <Download className="w-3 h-3" />
-                        </Button>
-                      </div>
+              ))}
+              {loading && (
+                <div className="flex justify-start">
+                  <div className="rounded-2xl px-4 py-2.5 bg-zinc-800">
+                    <div className="flex gap-1.5">
+                      <div className="w-2 h-2 rounded-full bg-zinc-500 animate-bounce" style={{ animationDelay: "0ms" }} />
+                      <div className="w-2 h-2 rounded-full bg-zinc-500 animate-bounce" style={{ animationDelay: "150ms" }} />
+                      <div className="w-2 h-2 rounded-full bg-zinc-500 animate-bounce" style={{ animationDelay: "300ms" }} />
                     </div>
-                  </Card>
-                ))
+                  </div>
+                </div>
               )}
             </div>
-          </ScrollArea>
-        </div>
 
-        <div className="border-r border-zinc-800 p-4 flex flex-col overflow-hidden">
-          <div className="flex items-center justify-between mb-4">
-            <h2 className="text-sm font-semibold text-zinc-400 uppercase tracking-wider">
-              Server Plan
-            </h2>
-            {plan && (
+            <div className="pb-4 pt-2">
+              {chatHistory.length > 0 && conversation.length === 0 && !plan && (
+                <div className="mb-3">
+                  <p className="text-[10px] text-zinc-600 uppercase tracking-wider mb-2">Recent</p>
+                  <div className="flex flex-wrap gap-1.5">
+                    {chatHistory.slice(0, 5).map((item, i) => (
+                      <Badge
+                        key={i}
+                        variant="outline"
+                        className="cursor-pointer text-[10px] border-zinc-700 text-zinc-400 hover:border-zinc-500"
+                        onClick={() => {
+                          setPlan(item.plan);
+                          setPrompt(item.prompt);
+                          toast.success("Restored from history");
+                        }}
+                      >
+                        {item.prompt.slice(0, 30)}...
+                      </Badge>
+                    ))}
+                  </div>
+                </div>
+              )}
               <div className="flex gap-2">
+                <Textarea
+                  placeholder="Describe your server..."
+                  value={prompt}
+                  onChange={(e) => setPrompt(e.target.value)}
+                  className="bg-zinc-900 border-zinc-700 text-white min-h-[44px] max-h-[120px] resize-none text-sm flex-1"
+                  rows={1}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter" && !e.shiftKey) {
+                      e.preventDefault();
+                      handleGenerate();
+                    }
+                  }}
+                />
                 <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={() => setEditing(!editing)}
-                  className="text-xs text-zinc-400"
+                  onClick={handleGenerate}
+                  disabled={loading || !prompt.trim()}
+                  className="bg-blue-600 hover:bg-blue-700 text-white h-[44px] px-5"
                 >
-                  {editing ? <EyeOff className="w-3 h-3 mr-1" /> : <Edit3 className="w-3 h-3 mr-1" />}
-                  {editing ? "View" : "Edit"}
-                </Button>
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={handleSaveVersion}
-                  className="text-xs text-zinc-400"
-                >
-                  <Save className="w-3 h-3 mr-1" />
-                  Save
+                  {loading ? "..." : "Commit"}
                 </Button>
               </div>
-            )}
+              <p className="text-[10px] text-zinc-700 mt-1.5 text-center">Enter to send · Shift+Enter for new line</p>
+            </div>
           </div>
+        )}
 
-          <ScrollArea className="flex-1">
-            {!plan ? (
-              <div className="flex flex-col items-center justify-center h-full text-center py-20">
-                <Sparkles className="w-12 h-12 text-zinc-700 mb-4" />
-                <p className="text-zinc-600 text-sm mb-2">No plan generated yet</p>
-                <p className="text-zinc-700 text-xs">Describe your server and click generate</p>
+        {activeView === "review" && plan && (
+          <div className="flex-1 flex overflow-hidden">
+            <div className="flex-1 overflow-y-auto p-6 max-w-2xl mx-auto w-full">
+              <div className="flex items-center justify-between mb-6">
+                <h2 className="text-sm font-semibold text-zinc-300">Review Plan</h2>
+                <div className="flex gap-2">
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => setEditing(!editing)}
+                    className="text-xs text-zinc-400 h-7"
+                  >
+                    {editing ? <EyeOff className="w-3 h-3 mr-1" /> : <Edit3 className="w-3 h-3 mr-1" />}
+                    {editing ? "View" : "Edit"}
+                  </Button>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={handleSaveVersion}
+                    className="text-xs text-zinc-400 h-7"
+                  >
+                    <Save className="w-3 h-3 mr-1" />
+                    Save
+                  </Button>
+                </div>
               </div>
-            ) : (
-              <div className="space-y-6 pr-2">
+
+              <div className="space-y-6">
                 <div>
-                  <h3 className="text-xs font-semibold text-purple-400 uppercase tracking-wider mb-3 flex items-center gap-2">
-                    <Bot className="w-3 h-3" />
+                  <h3 className="text-xs font-semibold text-purple-400 uppercase tracking-wider mb-3">
                     Roles ({plan.roles.length})
                   </h3>
                   <div className="space-y-2">
                     {plan.roles.map((role, i) => (
                       <motion.div
                         key={i}
-                        initial={{ opacity: 0, x: -10 }}
-                        animate={{ opacity: 1, x: 0 }}
-                        transition={{ delay: i * 0.05 }}
+                        initial={{ opacity: 0, y: -5 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        transition={{ delay: i * 0.03 }}
                         className="bg-zinc-900/50 border border-zinc-800 rounded-lg p-3"
                       >
                         {editing ? (
                           <div className="space-y-2">
-                            <div className="flex items-center gap-2">
-                              <GripVertical className="w-3 h-3 text-zinc-600 cursor-move" />
-                              <input
-                                value={role.name}
-                                onChange={(e) => updateRole(i, "name", e.target.value)}
-                                className="bg-zinc-800 border border-zinc-700 rounded px-2 py-1 text-sm text-white flex-1"
-                              />
-                            </div>
+                            <input
+                              value={role.name}
+                              onChange={(e) => updateRole(i, "name", e.target.value)}
+                              className="bg-zinc-800 border border-zinc-700 rounded px-2 py-1 text-sm text-white w-full"
+                            />
                             <div className="flex flex-wrap gap-1">
                               {role.permissions.map((perm, j) => (
                                 <Badge key={j} variant="secondary" className="text-[10px] bg-zinc-800">
@@ -515,10 +468,7 @@ export default function GuildDashboard() {
                         ) : (
                           <div className="flex items-center justify-between">
                             <div className="flex items-center gap-2">
-                              <div
-                                className="w-2 h-2 rounded-full"
-                                style={{ backgroundColor: role.color || "#5865F2" }}
-                              />
+                              <div className="w-2 h-2 rounded-full" style={{ backgroundColor: role.color || "#5865F2" }} />
                               <span className="text-sm text-white font-medium">{role.name}</span>
                             </div>
                             <div className="flex flex-wrap gap-1">
@@ -613,64 +563,55 @@ export default function GuildDashboard() {
                   </div>
                 )}
               </div>
-            )}
-          </ScrollArea>
 
-          {plan && (
-            <div className="pt-4 border-t border-zinc-800 mt-4">
-              <Button
-                onClick={() => setShowConfirm(true)}
-                disabled={executing || botMissing}
-                className="w-full bg-green-600 hover:bg-green-700 text-white"
-              >
-                <Play className="w-4 h-4 mr-2" />
-                {executing ? "Applying..." : "Apply to Server"}
-              </Button>
+              <div className="mt-8 pt-4 border-t border-zinc-800">
+                <Button
+                  onClick={() => setShowConfirm(true)}
+                  disabled={executing || botMissing}
+                  className="w-full bg-green-600 hover:bg-green-700 text-white"
+                >
+                  <Play className="w-4 h-4 mr-2" />
+                  {executing ? "Applying..." : "Apply to Server"}
+                </Button>
+              </div>
             </div>
-          )}
-        </div>
 
-        <div className="p-4 flex flex-col bg-zinc-950/50">
-          <h2 className="text-sm font-semibold text-zinc-400 uppercase tracking-wider mb-4 flex items-center gap-2">
-            <Terminal className="w-4 h-4 text-cyan-400" />
-            Execution Log
-          </h2>
-
-          {executing && (
-            <Progress value={progress} className="mb-4 h-1 bg-zinc-800 [&>div]:bg-gradient-to-r [&>div]:from-blue-500 [&>div]:to-purple-500" />
-          )}
-
-          <ScrollArea className="flex-1">
-            <div className="font-mono text-xs space-y-1">
-              {logs.length === 0 ? (
-                <p className="text-zinc-700">Awaiting execution...</p>
-              ) : (
-                logs.map((log, i) => (
-                  <motion.div
-                    key={i}
-                    initial={{ opacity: 0, x: -5 }}
-                    animate={{ opacity: 1, x: 0 }}
-                    className={`flex items-start gap-2 ${
-                      log.type === "error" ? "text-red-400" :
-                      log.type === "ok" ? "text-green-400" :
-                      log.type === "sync" ? "text-cyan-400" :
-                      "text-zinc-400"
-                    }`}
-                  >
-                    <span className="shrink-0">
-                      {log.type === "ok" && <CheckCircle2 className="w-3 h-3 mt-0.5" />}
-                      {log.type === "error" && <AlertCircle className="w-3 h-3 mt-0.5" />}
-                      {log.type === "sync" && <Bot className="w-3 h-3 mt-0.5" />}
-                      {log.type === "done" && <CheckCircle2 className="w-3 h-3 mt-0.5" />}
-                    </span>
-                    <span>{log.message}</span>
-                  </motion.div>
-                ))
+            <div className="w-72 border-l border-zinc-800 p-4 bg-zinc-950/50 flex flex-col">
+              <h3 className="text-xs font-semibold text-zinc-500 uppercase tracking-wider mb-3 flex items-center gap-1.5">
+                <Terminal className="w-3 h-3 text-cyan-400" />
+                Log
+              </h3>
+              {executing && (
+                <Progress value={progress} className="mb-3 h-1 bg-zinc-800 [&>div]:bg-gradient-to-r [&>div]:from-blue-500 [&>div]:to-purple-500" />
               )}
-              <div ref={logEndRef} />
+              <ScrollArea className="flex-1">
+                <div className="font-mono text-[10px] space-y-1">
+                  {logs.length === 0 ? (
+                    <p className="text-zinc-700">No activity yet</p>
+                  ) : (
+                    logs.map((log, i) => (
+                      <div key={i} className={`flex items-start gap-1.5 ${
+                        log.type === "error" ? "text-red-400" :
+                        log.type === "ok" ? "text-green-400" :
+                        log.type === "sync" ? "text-cyan-400" :
+                        "text-zinc-400"
+                      }`}>
+                        <span className="shrink-0">
+                          {log.type === "ok" && <CheckCircle2 className="w-2.5 h-2.5 mt-0.5" />}
+                          {log.type === "error" && <AlertCircle className="w-2.5 h-2.5 mt-0.5" />}
+                          {log.type === "sync" && <Bot className="w-2.5 h-2.5 mt-0.5" />}
+                          {log.type === "done" && <CheckCircle2 className="w-2.5 h-2.5 mt-0.5" />}
+                        </span>
+                        <span>{log.message}</span>
+                      </div>
+                    ))
+                  )}
+                  <div ref={logEndRef} />
+                </div>
+              </ScrollArea>
             </div>
-          </ScrollArea>
-        </div>
+          </div>
+        )}
       </div>
 
       <Dialog open={showConfirm} onOpenChange={setShowConfirm}>
@@ -711,8 +652,6 @@ export default function GuildDashboard() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
-
-
     </div>
   );
 }
