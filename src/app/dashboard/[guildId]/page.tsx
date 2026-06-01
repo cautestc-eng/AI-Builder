@@ -2,7 +2,7 @@
 
 import { useEffect, useState, useCallback, useRef } from "react";
 import { useParams, useRouter } from "next/navigation";
-import { motion } from "framer-motion";
+import { motion, AnimatePresence } from "framer-motion";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Textarea } from "@/components/ui/textarea";
@@ -14,8 +14,8 @@ import { toast } from "sonner";
 import {
   ArrowLeft, Bot, AlertCircle, CheckCircle2, 
   Sparkles, Save, RotateCcw, Download, 
-  Eye, EyeOff, Edit3, Plus, Trash2,
-  GripVertical, X, Terminal, Play
+  Eye, EyeOff, Edit3, Terminal, Play,
+  MessageSquare, History, ChevronRight, GripVertical, X
 } from "lucide-react";
 import {
   Dialog,
@@ -25,6 +25,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
 import { ServerPlan, LogEntry, ServerVersion, DiscordGuild } from "@/types";
 
 const TEMPLATES = [
@@ -55,6 +56,24 @@ export default function GuildDashboard() {
   const [pageLoading, setPageLoading] = useState(true);
   const logEndRef = useRef<HTMLDivElement>(null);
 
+  const [chatHistory, setChatHistory] = useState<{ prompt: string; plan: ServerPlan; timestamp: number }[]>([]);
+  const [showClarify, setShowClarify] = useState(false);
+  const [clarifyQuestions, setClarifyQuestions] = useState<{ key: string; label: string; options: string[] }[]>([]);
+  const [clarifyAnswers, setClarifyAnswers] = useState<Record<string, string>>({});
+
+  useEffect(() => {
+    const saved = localStorage.getItem(`chat_history_${guildId}`);
+    if (saved) {
+      try { setChatHistory(JSON.parse(saved)); } catch {}
+    }
+  }, [guildId]);
+
+  useEffect(() => {
+    if (chatHistory.length > 0) {
+      localStorage.setItem(`chat_history_${guildId}`, JSON.stringify(chatHistory));
+    }
+  }, [chatHistory, guildId]);
+
   useEffect(() => {
     const controller = new AbortController();
     const timeout = setTimeout(() => controller.abort(), 10000);
@@ -84,12 +103,91 @@ export default function GuildDashboard() {
     setLogs((prev) => [...prev, { type, message, timestamp: new Date().toISOString() }]);
   };
 
-  const handleGenerate = useCallback(async () => {
+  const detectClarifyQuestions = useCallback((text: string) => {
+    const lower = text.toLowerCase();
+    const questions: { key: string; label: string; options: string[] }[] = [];
+
+    if (/gami|game|minecraft|smp|valorant|league|lol|cod|fortnite|csgo|overwatch/i.test(lower)) {
+      questions.push({
+        key: "game_type",
+        label: "What genre of game server?",
+        options: ["Competitive", "Casual", "Both", "Community-based"],
+      });
+      questions.push({
+        key: "member_scale",
+        label: "Expected member count?",
+        options: ["Small (under 50)", "Medium (50-200)", "Large (200-1000)", "Very Large (1000+)"],
+      });
+    }
+    if (/community|hub|general|social/i.test(lower)) {
+      questions.push({
+        key: "topic",
+        label: "What's the main topic or interest?",
+        options: ["Technology", "Art & Design", "Music", "Movies & TV", "Education", "Lifestyle", "Other"],
+      });
+    }
+    if (/coding|programming|dev|developer/i.test(lower)) {
+      questions.push({
+        key: "languages",
+        label: "Which programming languages?",
+        options: ["General / All", "JavaScript/TypeScript", "Python", "Rust", "Go", "Java/Kotlin", "C/C++"],
+      });
+    }
+    if (/esport|team|clan|scrim|tournament/i.test(lower)) {
+      questions.push({
+        key: "game",
+        label: "What game(s) do you compete in?",
+        options: ["Valorant", "League of Legends", "CS2", "Overwatch", "Dota 2", "Fortnite", "Multiple"],
+      });
+    }
+
+    if (questions.length === 0) {
+      questions.push({
+        key: "purpose",
+        label: "What's the main purpose of this server?",
+        options: ["Community & Discussion", "Gaming", "Education & Learning", "Business / Work", "Events & Planning", "Other"],
+      });
+      questions.push({
+        key: "size",
+        label: "Expected member count?",
+        options: ["Small (under 50)", "Medium (50-200)", "Large (200-1000)", "Very Large (1000+)"],
+      });
+    }
+
+    return questions;
+  }, []);
+
+  const handleGenerateClick = useCallback(() => {
     if (!prompt.trim()) {
       toast.error("Please describe your server");
       return;
     }
+    const questions = detectClarifyQuestions(prompt);
+    if (questions.length > 0) {
+      setClarifyQuestions(questions);
+      const defaults: Record<string, string> = {};
+      questions.forEach((q) => { defaults[q.key] = ""; });
+      setClarifyAnswers(defaults);
+      setShowClarify(true);
+    } else {
+      doGenerate(prompt.trim());
+    }
+  }, [prompt, detectClarifyQuestions]);
 
+  const handleClarifySubmit = useCallback(() => {
+    setShowClarify(false);
+    const enhancements: string[] = [];
+    clarifyQuestions.forEach((q) => {
+      const answer = clarifyAnswers[q.key];
+      if (answer) enhancements.push(`${q.label}: ${answer}`);
+    });
+    const enhanced = enhancements.length > 0
+      ? `${prompt.trim()}\n\nAdditional details: ${enhancements.join("; ")}.`
+      : prompt.trim();
+    doGenerate(enhanced);
+  }, [prompt, clarifyAnswers, clarifyQuestions]);
+
+  const doGenerate = useCallback(async (finalPrompt: string) => {
     setLoading(true);
     setPlan(null);
     setLogs([]);
@@ -101,7 +199,7 @@ export default function GuildDashboard() {
       const res = await fetch("/api/ai/generate", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ prompt: prompt.trim() }),
+        body: JSON.stringify({ prompt: finalPrompt }),
       });
 
       setProgress(60);
@@ -115,6 +213,7 @@ export default function GuildDashboard() {
       }
 
       setPlan(data.plan);
+      setChatHistory((prev) => [{ prompt: finalPrompt, plan: data.plan, timestamp: Date.now() }, ...prev]);
       if (data.warnings?.length) {
         setWarnings(data.warnings);
         data.warnings.forEach((w: string) => addLog("error", `Warning: ${w}`));
@@ -128,7 +227,7 @@ export default function GuildDashboard() {
     } finally {
       setLoading(false);
     }
-  }, [prompt]);
+  }, []);
 
   const handleTemplate = (templateId: string) => {
     const templates: Record<string, string> = {
@@ -286,7 +385,7 @@ export default function GuildDashboard() {
             ))}
           </div>
           <Button
-            onClick={handleGenerate}
+            onClick={handleGenerateClick}
             disabled={loading || !prompt.trim()}
             className="w-full bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white mb-2"
           >
@@ -295,6 +394,34 @@ export default function GuildDashboard() {
           </Button>
 
           <Separator className="my-4 bg-zinc-800" />
+
+          {chatHistory.length > 0 && (
+            <>
+              <h3 className="text-xs font-semibold text-zinc-500 uppercase tracking-wider mb-3 flex items-center gap-1">
+                <History className="w-3 h-3" />
+                Chat History
+              </h3>
+              <ScrollArea className="max-h-[160px] mb-4">
+                <div className="space-y-1">
+                  {chatHistory.map((item, i) => (
+                    <Card
+                      key={i}
+                      className="bg-zinc-900/20 border-zinc-800 p-2 cursor-pointer hover:border-purple-500/30 transition-colors"
+                      onClick={() => {
+                        setPlan(item.plan);
+                        setPrompt(item.prompt);
+                        toast.success("Restored from history");
+                      }}
+                    >
+                      <p className="text-xs text-zinc-300 line-clamp-1">{item.prompt}</p>
+                      <p className="text-[10px] text-zinc-600 font-mono mt-1">{new Date(item.timestamp).toLocaleString()}</p>
+                    </Card>
+                  ))}
+                </div>
+              </ScrollArea>
+              <Separator className="mb-4 bg-zinc-800" />
+            </>
+          )}
 
           <h3 className="text-xs font-semibold text-zinc-500 uppercase tracking-wider mb-3">
             Version History
@@ -628,6 +755,55 @@ export default function GuildDashboard() {
             </Button>
             <Button onClick={handleExecute} className="bg-green-600 hover:bg-green-700 text-white">
               Yes, Apply Changes
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={showClarify} onOpenChange={setShowClarify}>
+        <DialogContent className="bg-zinc-950 border-zinc-800 sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle className="text-white">Let's refine your idea</DialogTitle>
+            <DialogDescription className="text-zinc-400">
+              A few quick questions to help the AI generate a better plan.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-2">
+            {clarifyQuestions.map((q) => (
+              <div key={q.key}>
+                <p className="text-sm text-zinc-300 mb-2">{q.label}</p>
+                <div className="flex flex-wrap gap-1.5">
+                  {q.options.map((opt) => (
+                    <Badge
+                      key={opt}
+                      variant={clarifyAnswers[q.key] === opt ? "default" : "outline"}
+                      className={`cursor-pointer text-xs py-1.5 px-3 ${
+                        clarifyAnswers[q.key] === opt
+                          ? "bg-purple-600 border-purple-500"
+                          : "border-zinc-700 hover:border-zinc-500"
+                      }`}
+                      onClick={() => setClarifyAnswers((prev) => ({ ...prev, [q.key]: opt }))}
+                    >
+                      {opt}
+                    </Badge>
+                  ))}
+                </div>
+              </div>
+            ))}
+          </div>
+          <DialogFooter className="gap-2">
+            <Button
+              variant="ghost"
+              onClick={() => { setShowClarify(false); doGenerate(prompt.trim()); }}
+              className="text-zinc-400"
+            >
+              Skip
+            </Button>
+            <Button
+              onClick={handleClarifySubmit}
+              className="bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white"
+            >
+              Generate Plan
             </Button>
           </DialogFooter>
         </DialogContent>
