@@ -52,6 +52,7 @@ export default function GuildDashboard() {
   const [showConfirm, setShowConfirm] = useState(false);
   const [editing, setEditing] = useState(false);
   const [botMissing, setBotMissing] = useState(false);
+  const [showInviteDialog, setShowInviteDialog] = useState(false);
   const [warnings, setWarnings] = useState<string[]>([]);
   const [pageLoading, setPageLoading] = useState(true);
   const logEndRef = useRef<HTMLDivElement>(null);
@@ -354,12 +355,10 @@ export default function GuildDashboard() {
           </div>
         </div>
         {botMissing && (
-          <a href={inviteBotUrl} target="_blank" rel="noopener noreferrer">
-            <Button variant="outline" size="sm" className="border-amber-500/50 text-amber-400 h-7 text-xs">
-              <Bot className="w-3 h-3 mr-1" />
-              Invite Bot
-            </Button>
-          </a>
+          <Button variant="outline" size="sm" className="border-amber-500/50 text-amber-400 h-7 text-xs" onClick={() => setShowInviteDialog(true)}>
+            <Bot className="w-3 h-3 mr-1" />
+            Invite Bot
+          </Button>
         )}
       </div>
 
@@ -473,6 +472,12 @@ export default function GuildDashboard() {
             {!plan && versions.length === 0 && (
               <div className="flex items-center justify-center h-32">
                 <p className="text-[11px] text-zinc-700 text-center">No changes yet<br />Generate a plan first</p>
+              </div>
+            )}
+            {plan && botMissing && (
+              <div className="bg-amber-500/10 border border-amber-500/20 rounded-lg p-3 text-center">
+                <p className="text-[11px] text-amber-400 font-medium mb-1">Bot not invited</p>
+                <p className="text-[10px] text-zinc-500">Invite the bot to apply changes</p>
               </div>
             )}
           </div>
@@ -624,12 +629,45 @@ export default function GuildDashboard() {
             </div>
           </div>
           <DialogFooter>
+            {botMissing && <p className="text-[11px] text-amber-400 text-center w-full">Bot needs to be invited first</p>}
             <Button variant="ghost" onClick={() => setShowConfirm(false)} className="text-zinc-400">
               Cancel
             </Button>
-            <Button onClick={handleExecute} className="bg-green-600 hover:bg-green-700 text-white">
+            <Button onClick={handleExecute} disabled={botMissing} className="bg-green-600 hover:bg-green-700 text-white">
               Yes, Apply Changes
             </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={showInviteDialog} onOpenChange={setShowInviteDialog}>
+        <DialogContent className="bg-zinc-950 border-zinc-800">
+          <DialogHeader>
+            <DialogTitle className="text-white">Invite Bot to Server</DialogTitle>
+            <DialogDescription className="text-zinc-400">
+              The bot needs to be invited to <strong className="text-white">{guild.name}</strong> before it can make changes.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="bg-zinc-900 rounded-lg p-4 space-y-2 text-sm">
+            <p className="text-zinc-300 text-sm mb-2">The bot requires these permissions:</p>
+            <ul className="text-xs text-zinc-400 space-y-1 list-disc list-inside">
+              <li>Administrator (recommended)</li>
+              <li>Manage Roles</li>
+              <li>Manage Channels</li>
+              <li>Send Messages</li>
+              <li>View Channels</li>
+            </ul>
+            <p className="text-xs text-zinc-500 mt-2">Open the invite link in a new tab, select your server, and authorize the bot.</p>
+          </div>
+          <DialogFooter className="gap-2">
+            <Button variant="ghost" onClick={() => setShowInviteDialog(false)} className="text-zinc-400">
+              Cancel
+            </Button>
+            <a href={inviteBotUrl} target="_blank" rel="noopener noreferrer" onClick={() => setShowInviteDialog(false)}>
+              <Button className="bg-blue-600 hover:bg-blue-700 text-white">
+                Open Invite Link
+              </Button>
+            </a>
           </DialogFooter>
         </DialogContent>
       </Dialog>
