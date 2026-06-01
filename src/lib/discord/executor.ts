@@ -58,21 +58,28 @@ function resolvePermissions(perms: string[]): string {
   return bitwise.toString();
 }
 
-async function discordFetch(path: string, options: RequestInit = {}) {
-  const res = await fetch(`${DISCORD_API}${path}`, {
-    ...options,
-    headers: { ...headers(), ...(options.headers as Record<string, string> || {}) },
-  });
-  if (!res.ok) {
-    const body = await res.text();
-    throw new Error(`Discord API ${res.status}: ${body}`);
+async function discordFetch(path: string, options: RequestInit = {}, timeoutMs = 5000) {
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), timeoutMs);
+  try {
+    const res = await fetch(`${DISCORD_API}${path}`, {
+      ...options,
+      signal: controller.signal,
+      headers: { ...headers(), ...(options.headers as Record<string, string> || {}) },
+    });
+    if (!res.ok) {
+      const body = await res.text();
+      throw new Error(`Discord API ${res.status}: ${body}`);
+    }
+    return res.status === 204 ? null : res.json();
+  } finally {
+    clearTimeout(timeout);
   }
-  return res.status === 204 || res.status === 201 ? null : res.json();
 }
 
 export async function verifyBotInGuild(guildId: string): Promise<boolean> {
   try {
-    await discordFetch(`/guilds/${guildId}`);
+    await discordFetch(`/guilds/${guildId}`, {}, 3000);
     return true;
   } catch {
     return false;

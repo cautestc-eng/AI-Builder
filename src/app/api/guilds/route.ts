@@ -4,6 +4,8 @@ import { fetchGuilds, isOwner, canManageGuild } from "@/lib/discord/oauth";
 import { verifyBotInGuild } from "@/lib/discord/executor";
 import { createAdminClient } from "@/lib/supabase/admin";
 
+export const maxDuration = 30;
+
 export async function GET(req: NextRequest) {
   const cookieStore = await cookies();
   const accessToken = cookieStore.get("discord_access_token")?.value;
@@ -20,39 +22,44 @@ export async function GET(req: NextRequest) {
 
   const supabase = createAdminClient();
 
-  const accessibleGuilds = [];
-  for (const guild of guilds) {
-    const isUserOwner = isOwner(guild, userId);
-    const canManage = canManageGuild(guild.permissions);
+  const owned = guilds.filter((g) => isOwner(g, userId) || canManageGuild(g.permissions));
 
-    if (!isUserOwner && !canManage) continue;
+  const { data: existingGuilds } = await supabase
+    .from("guilds")
+    .select("id, bot_installed")
+    .in("id", owned.map((g) => g.id));
 
-    const { data: guildData } = await supabase
-      .from("guilds")
-      .select("bot_installed")
-      .eq("id", guild.id)
-      .single();
+  const installedMap = new Map(
+    (existingGuilds || []).map((g: any) => [g.id, g.bot_installed])
+  );
 
-    let botInstalled = guildData?.bot_installed ?? false;
-    if (!botInstalled) {
-      botInstalled = await verifyBotInGuild(guild.id);
-      if (botInstalled) {
-        await supabase.from("guilds").upsert({
-          id: guild.id,
-          name: guild.name,
-          icon: guild.icon,
-          owner_id: guild.owner_id || userId,
-          bot_installed: true,
-        }, { onConflict: "id" });
-      }
+  const needsCheck = owned.filter((g) => !installedMap.get(g.id));
+
+  const results = await Promise.allSettled(
+    needsCheck.map((g) => verifyBotInGuild(g.id))
+  );
+
+  for (let i = 0; i < needsCheck.length; i++) {
+    const r = results[i];
+    if (r.status !== "fulfilled") continue;
+    const botInstalled = r.value;
+    if (botInstalled) {
+      await supabase.from("guilds").upsert({
+        id: needsCheck[i].id,
+        name: needsCheck[i].name,
+        icon: needsCheck[i].icon,
+        owner_id: needsCheck[i].owner_id || userId,
+        bot_installed: true,
+      }, { onConflict: "id" }).maybeSingle();
+      installedMap.set(needsCheck[i].id, true);
     }
-
-    accessibleGuilds.push({
-      ...guild,
-      owner_id: guild.owner_id || userId,
-      bot_installed: botInstalled,
-    });
   }
+
+  const accessibleGuilds = owned.map((g) => ({
+    ...g,
+    owner_id: g.owner_id || userId,
+    bot_installed: installedMap.get(g.id) ?? false,
+  }));
 
   return NextResponse.json({ guilds: accessibleGuilds });
 }
