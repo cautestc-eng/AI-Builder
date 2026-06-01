@@ -340,10 +340,9 @@ export default function GuildDashboard() {
           <Button
             onClick={handleGenerate}
             disabled={loading || !prompt.trim()}
-            className="w-full bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white mb-2"
+            className="w-full bg-blue-600 hover:bg-blue-700 text-white mb-2"
           >
-            <Sparkles className="w-4 h-4 mr-2" />
-            {loading ? "Thinking..." : conversation.length > 0 ? "Send Answer & Generate" : "Generate Server Plan"}
+            {loading ? "..." : "Commit"}
           </Button>
 
           <Separator className="my-4 bg-zinc-800" />
