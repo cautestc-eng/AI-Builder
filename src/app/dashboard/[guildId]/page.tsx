@@ -260,7 +260,6 @@ export default function GuildDashboard() {
     setPlan(newPlan);
   };
 
-  const [activeView, setActiveView] = useState<"chat" | "review">("chat");
   const inviteBotUrl = `https://discord.com/api/oauth2/authorize?client_id=${process.env.NEXT_PUBLIC_DISCORD_CLIENT_ID}&permissions=8&scope=bot%20applications.commands&guild_id=${guildId}`;
 
   if (pageLoading) {
@@ -288,349 +287,235 @@ export default function GuildDashboard() {
           </Button>
           <span className="text-sm font-medium text-zinc-300">{guild.name}</span>
         </div>
-        <div className="flex items-center gap-1 bg-zinc-900 rounded-lg p-0.5 border border-zinc-800">
-          {["Build", "DeepSeek", "Default"].map((m) => (
-            <button
-              key={m}
-              className={`px-3 py-1 text-xs rounded-md transition-colors ${
-                activeView === "chat" && m === "Build"
-                  ? "bg-zinc-800 text-white"
-                  : "text-zinc-500 hover:text-zinc-300"
-              }`}
-              onClick={() => setActiveView("chat")}
-            >
-              {m}
-            </button>
-          ))}
-        </div>
-        <div className="flex items-center gap-2">
-          {plan && (
-            <button
-              onClick={() => setActiveView(activeView === "review" ? "chat" : "review")}
-              className={`px-3 py-1 text-xs rounded-md transition-colors ${
-                activeView === "review" ? "bg-blue-600 text-white" : "text-zinc-500 hover:text-zinc-300"
-              }`}
-            >
-              Review
-            </button>
-          )}
-          {botMissing && (
-            <a href={inviteBotUrl} target="_blank" rel="noopener noreferrer">
-              <Button variant="outline" size="sm" className="border-amber-500/50 text-amber-400 h-7 text-xs">
-                <Bot className="w-3 h-3 mr-1" />
-                Invite Bot
-              </Button>
-            </a>
-          )}
-        </div>
+        {botMissing && (
+          <a href={inviteBotUrl} target="_blank" rel="noopener noreferrer">
+            <Button variant="outline" size="sm" className="border-amber-500/50 text-amber-400 h-7 text-xs">
+              <Bot className="w-3 h-3 mr-1" />
+              Invite Bot
+            </Button>
+          </a>
+        )}
       </div>
 
       <div className="flex-1 flex overflow-hidden">
-        {activeView === "chat" && (
-          <div className="flex-1 flex flex-col max-w-3xl mx-auto w-full px-4">
-            <div className="flex-1 overflow-y-auto py-4 space-y-3">
-              {conversation.length === 0 && !plan && (
-                <div className="text-center py-16">
-                  <p className="text-zinc-600 text-sm">Describe your server below</p>
-                  <p className="text-zinc-700 text-xs mt-1">The AI will ask questions if it needs more info</p>
-                </div>
-              )}
-              {conversation.map((msg, i) => (
-                <div key={i} className={`flex ${msg.role === "user" ? "justify-end" : "justify-start"}`}>
-                  <div className={`rounded-2xl px-4 py-2.5 text-sm max-w-[80%] leading-relaxed ${
-                    msg.role === "user"
-                      ? "bg-blue-600 text-white"
-                      : "bg-zinc-800 text-zinc-200"
-                  }`}>
-                    {msg.content}
+        <div className="w-72 border-r border-zinc-800 flex flex-col bg-zinc-950/40">
+          <div className="p-4 border-b border-zinc-800">
+            <h3 className="text-xs font-semibold text-zinc-500 uppercase tracking-wider flex items-center gap-1.5">
+              <CheckCircle2 className="w-3 h-3 text-blue-400" />
+              Changes
+            </h3>
+          </div>
+          {plan ? (
+            <ScrollArea className="flex-1 p-4">
+              <div className="space-y-4">
+                <div>
+                  <p className="text-[10px] text-purple-400 uppercase tracking-wider font-semibold mb-2">Roles ({plan.roles.length})</p>
+                  <div className="space-y-1">
+                    {plan.roles.map((r, i) => (
+                      <div key={i} className="flex items-center gap-2 text-xs text-zinc-400">
+                        <div className="w-1.5 h-1.5 rounded-full shrink-0" style={{ backgroundColor: r.color || "#5865F2" }} />
+                        <span>{r.name}</span>
+                      </div>
+                    ))}
                   </div>
                 </div>
-              ))}
-              {loading && (
-                <div className="flex justify-start">
-                  <div className="rounded-2xl px-4 py-2.5 bg-zinc-800">
-                    <div className="flex gap-1.5">
-                      <div className="w-2 h-2 rounded-full bg-zinc-500 animate-bounce" style={{ animationDelay: "0ms" }} />
-                      <div className="w-2 h-2 rounded-full bg-zinc-500 animate-bounce" style={{ animationDelay: "150ms" }} />
-                      <div className="w-2 h-2 rounded-full bg-zinc-500 animate-bounce" style={{ animationDelay: "300ms" }} />
-                    </div>
-                  </div>
-                </div>
-              )}
-            </div>
-
-            <div className="pb-4 pt-2">
-              {chatHistory.length > 0 && conversation.length === 0 && !plan && (
-                <div className="mb-3">
-                  <p className="text-[10px] text-zinc-600 uppercase tracking-wider mb-2">Recent</p>
-                  <div className="flex flex-wrap gap-1.5">
-                    {chatHistory.slice(0, 5).map((item, i) => (
-                      <Badge
-                        key={i}
-                        variant="outline"
-                        className="cursor-pointer text-[10px] border-zinc-700 text-zinc-400 hover:border-zinc-500"
-                        onClick={() => {
-                          setPlan(item.plan);
-                          setPrompt(item.prompt);
-                          toast.success("Restored from history");
-                        }}
-                      >
-                        {item.prompt.slice(0, 30)}...
+                <div>
+                  <p className="text-[10px] text-blue-400 uppercase tracking-wider font-semibold mb-2">Text Channels ({plan.channels.text.length})</p>
+                  <div className="flex flex-wrap gap-1">
+                    {plan.channels.text.map((ch, i) => (
+                      <Badge key={i} className="text-[10px] bg-zinc-900 border-zinc-700 text-zinc-400">
+                        #{ch}
                       </Badge>
                     ))}
                   </div>
                 </div>
-              )}
-              <div className="flex gap-2">
-                <div className="relative flex-1">
-                  <textarea
-                    ref={inputRef}
-                    placeholder="Describe your server..."
-                    value={prompt}
-                    maxLength={8064}
-                    onChange={(e) => {
-                      if (e.target.value.length <= 8064) {
-                        setPrompt(e.target.value);
-                        e.currentTarget.style.height = "44px";
-                        e.currentTarget.style.height = `${Math.min(e.currentTarget.scrollHeight, 300)}px`;
-                      }
-                    }}
-                    className="bg-zinc-900 border border-zinc-700 text-white min-h-[44px] max-h-[300px] resize-none text-sm w-full rounded-lg px-3 py-2.5 focus:outline-none focus:border-blue-500/50 placeholder-zinc-600 overflow-y-auto"
-                    rows={1}
-                    onKeyDown={(e) => {
-                      if (e.key === "Enter" && !e.shiftKey) {
-                        e.preventDefault();
-                        handleGenerate();
-                      }
-                    }}
-                  />
-                  <span className="absolute bottom-1.5 right-2 text-[10px] text-zinc-600">{prompt.length}/8064</span>
-                </div>
-                <Button
-                  onClick={handleGenerate}
-                  disabled={loading || !prompt.trim()}
-                  className="bg-blue-600 hover:bg-blue-700 text-white h-[44px] px-5"
-                >
-                  {loading ? "..." : "Commit"}
-                </Button>
-              </div>
-              <p className="text-[10px] text-zinc-700 mt-1.5 text-center">Enter to send · Shift+Enter for new line</p>
-            </div>
-          </div>
-        )}
-
-        {activeView === "review" && plan && (
-          <div className="flex-1 flex overflow-hidden">
-            <div className="flex-1 overflow-y-auto p-6 max-w-2xl mx-auto w-full">
-              <div className="flex items-center justify-between mb-6">
-                <h2 className="text-sm font-semibold text-zinc-300">Review Plan</h2>
-                <div className="flex gap-2">
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={() => setEditing(!editing)}
-                    className="text-xs text-zinc-400 h-7"
-                  >
-                    {editing ? <EyeOff className="w-3 h-3 mr-1" /> : <Edit3 className="w-3 h-3 mr-1" />}
-                    {editing ? "View" : "Edit"}
-                  </Button>
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={handleSaveVersion}
-                    className="text-xs text-zinc-400 h-7"
-                  >
-                    <Save className="w-3 h-3 mr-1" />
-                    Save
-                  </Button>
-                </div>
-              </div>
-
-              <div className="space-y-6">
                 <div>
-                  <h3 className="text-xs font-semibold text-purple-400 uppercase tracking-wider mb-3">
-                    Roles ({plan.roles.length})
-                  </h3>
-                  <div className="space-y-2">
-                    {plan.roles.map((role, i) => (
-                      <motion.div
-                        key={i}
-                        initial={{ opacity: 0, y: -5 }}
-                        animate={{ opacity: 1, y: 0 }}
-                        transition={{ delay: i * 0.03 }}
-                        className="bg-zinc-900/50 border border-zinc-800 rounded-lg p-3"
-                      >
-                        {editing ? (
-                          <div className="space-y-2">
-                            <input
-                              value={role.name}
-                              onChange={(e) => updateRole(i, "name", e.target.value)}
-                              className="bg-zinc-800 border border-zinc-700 rounded px-2 py-1 text-sm text-white w-full"
-                            />
-                            <div className="flex flex-wrap gap-1">
-                              {role.permissions.map((perm, j) => (
-                                <Badge key={j} variant="secondary" className="text-[10px] bg-zinc-800">
-                                  {perm}
-                                  <button
-                                    onClick={() => {
-                                      const newPerms = role.permissions.filter((_, idx) => idx !== j);
-                                      updateRole(i, "permissions", newPerms);
-                                    }}
-                                    className="ml-1 text-zinc-500 hover:text-red-400"
-                                  >
-                                    <X className="w-2 h-2" />
-                                  </button>
-                                </Badge>
-                              ))}
-                            </div>
-                          </div>
-                        ) : (
-                          <div className="flex items-center justify-between">
-                            <div className="flex items-center gap-2">
-                              <div className="w-2 h-2 rounded-full" style={{ backgroundColor: role.color || "#5865F2" }} />
-                              <span className="text-sm text-white font-medium">{role.name}</span>
-                            </div>
-                            <div className="flex flex-wrap gap-1">
-                              {role.permissions.slice(0, 3).map((perm, j) => (
-                                <Badge key={j} variant="outline" className="text-[10px] border-zinc-700 text-zinc-400">
-                                  {perm}
-                                </Badge>
-                              ))}
-                              {role.permissions.length > 3 && (
-                                <Badge variant="outline" className="text-[10px] border-zinc-700 text-zinc-500">
-                                  +{role.permissions.length - 3}
-                                </Badge>
-                              )}
-                            </div>
-                          </div>
-                        )}
-                      </motion.div>
-                    ))}
-                  </div>
-                </div>
-
-                <div>
-                  <h3 className="text-xs font-semibold text-blue-400 uppercase tracking-wider mb-3">
-                    Text Channels ({plan.channels.text.length})
-                  </h3>
-                  <div className="flex flex-wrap gap-2">
-                    {plan.channels.text.map((ch, i) => (
-                      editing ? (
-                        <input
-                          key={i}
-                          value={ch}
-                          onChange={(e) => updateChannel("text", i, e.target.value)}
-                          className="bg-zinc-800 border border-zinc-700 rounded px-2 py-1 text-xs text-white"
-                        />
-                      ) : (
-                        <Badge key={i} className="bg-zinc-900 border border-zinc-700 text-zinc-300">
-                          #{ch}
-                        </Badge>
-                      )
-                    ))}
-                  </div>
-                </div>
-
-                <div>
-                  <h3 className="text-xs font-semibold text-green-400 uppercase tracking-wider mb-3">
-                    Voice Channels ({plan.channels.voice.length})
-                  </h3>
-                  <div className="flex flex-wrap gap-2">
+                  <p className="text-[10px] text-green-400 uppercase tracking-wider font-semibold mb-2">Voice Channels ({plan.channels.voice.length})</p>
+                  <div className="flex flex-wrap gap-1">
                     {plan.channels.voice.map((ch, i) => (
-                      editing ? (
-                        <input
-                          key={i}
-                          value={ch}
-                          onChange={(e) => updateChannel("voice", i, e.target.value)}
-                          className="bg-zinc-800 border border-zinc-700 rounded px-2 py-1 text-xs text-white"
-                        />
-                      ) : (
-                        <Badge key={i} className="bg-zinc-900 border border-zinc-700 text-zinc-300">
-                          🔊 {ch}
-                        </Badge>
-                      )
+                      <Badge key={i} className="text-[10px] bg-zinc-900 border-zinc-700 text-zinc-400">
+                        🔊 {ch}
+                      </Badge>
                     ))}
                   </div>
                 </div>
-
                 <div>
-                  <h3 className="text-xs font-semibold text-cyan-400 uppercase tracking-wider mb-3">
-                    Categories ({plan.category_structure.length})
-                  </h3>
-                  <div className="space-y-2">
+                  <p className="text-[10px] text-cyan-400 uppercase tracking-wider font-semibold mb-2">Categories ({plan.category_structure.length})</p>
+                  <div className="space-y-1.5">
                     {plan.category_structure.map((cat, i) => (
-                      <div key={i} className="bg-zinc-900/30 border border-zinc-800 rounded-lg p-3">
-                        <p className="text-sm font-medium text-white mb-2">{cat.name}</p>
-                        <div className="flex flex-wrap gap-1">
+                      <div key={i} className="bg-zinc-900/50 border border-zinc-800 rounded p-2">
+                        <p className="text-xs text-zinc-300 font-medium">{cat.name}</p>
+                        <div className="flex flex-wrap gap-1 mt-1">
                           {cat.channels.map((ch, j) => (
-                            <Badge key={j} variant="outline" className="text-[10px] border-zinc-700 text-zinc-500">
-                              #{ch}
-                            </Badge>
+                            <span key={j} className="text-[10px] text-zinc-600">#{ch}</span>
                           ))}
                         </div>
                       </div>
                     ))}
                   </div>
                 </div>
-
                 {warnings.length > 0 && (
-                  <div className="bg-amber-500/10 border border-amber-500/20 rounded-lg p-3">
-                    <p className="text-xs text-amber-400 font-medium mb-1">Warnings</p>
+                  <div className="bg-amber-500/10 border border-amber-500/20 rounded p-2">
+                    <p className="text-[10px] text-amber-400 font-medium">Warnings</p>
                     {warnings.map((w, i) => (
-                      <p key={i} className="text-xs text-zinc-500">{w}</p>
+                      <p key={i} className="text-[10px] text-zinc-500">{w}</p>
                     ))}
                   </div>
                 )}
-              </div>
-
-              <div className="mt-8 pt-4 border-t border-zinc-800">
-                <Button
-                  onClick={() => setShowConfirm(true)}
-                  disabled={executing || botMissing}
-                  className="w-full bg-green-600 hover:bg-green-700 text-white"
-                >
-                  <Play className="w-4 h-4 mr-2" />
-                  {executing ? "Applying..." : "Apply to Server"}
-                </Button>
-              </div>
-            </div>
-
-            <div className="w-72 border-l border-zinc-800 p-4 bg-zinc-950/50 flex flex-col">
-              <h3 className="text-xs font-semibold text-zinc-500 uppercase tracking-wider mb-3 flex items-center gap-1.5">
-                <Terminal className="w-3 h-3 text-cyan-400" />
-                Log
-              </h3>
-              {executing && (
-                <Progress value={progress} className="mb-3 h-1 bg-zinc-800 [&>div]:bg-gradient-to-r [&>div]:from-blue-500 [&>div]:to-purple-500" />
-              )}
-              <ScrollArea className="flex-1">
-                <div className="font-mono text-[10px] space-y-1">
-                  {logs.length === 0 ? (
-                    <p className="text-zinc-700">No activity yet</p>
-                  ) : (
-                    logs.map((log, i) => (
-                      <div key={i} className={`flex items-start gap-1.5 ${
-                        log.type === "error" ? "text-red-400" :
-                        log.type === "ok" ? "text-green-400" :
-                        log.type === "sync" ? "text-cyan-400" :
-                        "text-zinc-400"
-                      }`}>
-                        <span className="shrink-0">
-                          {log.type === "ok" && <CheckCircle2 className="w-2.5 h-2.5 mt-0.5" />}
-                          {log.type === "error" && <AlertCircle className="w-2.5 h-2.5 mt-0.5" />}
-                          {log.type === "sync" && <Bot className="w-2.5 h-2.5 mt-0.5" />}
-                          {log.type === "done" && <CheckCircle2 className="w-2.5 h-2.5 mt-0.5" />}
-                        </span>
-                        <span>{log.message}</span>
-                      </div>
-                    ))
-                  )}
-                  <div ref={logEndRef} />
+                <div className="pt-2 border-t border-zinc-800">
+                  <div className="flex gap-2">
+                    <Button variant="outline" size="sm" onClick={() => setEditing(!editing)} className="text-[10px] h-7 text-zinc-400 border-zinc-700 flex-1">
+                      {editing ? <EyeOff className="w-3 h-3 mr-1" /> : <Edit3 className="w-3 h-3 mr-1" />}
+                      {editing ? "View" : "Edit"}
+                    </Button>
+                    <Button variant="outline" size="sm" onClick={handleSaveVersion} className="text-[10px] h-7 text-zinc-400 border-zinc-700 flex-1">
+                      <Save className="w-3 h-3 mr-1" />
+                      Save
+                    </Button>
+                  </div>
+                  <Button
+                    onClick={() => setShowConfirm(true)}
+                    disabled={executing || botMissing}
+                    className="w-full bg-green-600 hover:bg-green-700 text-white h-8 text-xs mt-2"
+                  >
+                    <Play className="w-3 h-3 mr-1" />
+                    {executing ? "Applying..." : "Apply to Server"}
+                  </Button>
                 </div>
-              </ScrollArea>
+              </div>
+            </ScrollArea>
+          ) : (
+            <div className="flex-1 flex items-center justify-center p-4">
+              <p className="text-[10px] text-zinc-700 text-center">No pending changes<br />Generate a plan first</p>
             </div>
+          )}
+        </div>
+
+        <div className="flex-1 flex flex-col min-w-0">
+          <div className="flex-1 overflow-y-auto py-4 px-4 space-y-3">
+            {conversation.length === 0 && !plan && (
+              <div className="text-center py-16">
+                <p className="text-zinc-600 text-sm">Describe your server below</p>
+                <p className="text-zinc-700 text-xs mt-1">The AI will ask questions if it needs more info</p>
+              </div>
+            )}
+            {conversation.map((msg, i) => (
+              <div key={i} className={`flex ${msg.role === "user" ? "justify-end" : "justify-start"}`}>
+                <div className={`rounded-2xl px-4 py-2.5 text-sm max-w-[80%] leading-relaxed ${
+                  msg.role === "user"
+                    ? "bg-blue-600 text-white"
+                    : "bg-zinc-800 text-zinc-200"
+                }`}>
+                  {msg.content}
+                </div>
+              </div>
+            ))}
+            {loading && (
+              <div className="flex justify-start">
+                <div className="rounded-2xl px-4 py-2.5 bg-zinc-800">
+                  <div className="flex gap-1.5">
+                    <div className="w-2 h-2 rounded-full bg-zinc-500 animate-bounce" style={{ animationDelay: "0ms" }} />
+                    <div className="w-2 h-2 rounded-full bg-zinc-500 animate-bounce" style={{ animationDelay: "150ms" }} />
+                    <div className="w-2 h-2 rounded-full bg-zinc-500 animate-bounce" style={{ animationDelay: "300ms" }} />
+                  </div>
+                </div>
+              </div>
+            )}
           </div>
-        )}
+
+          <div className="px-4 pb-4 pt-2 border-t border-zinc-800/50">
+            {chatHistory.length > 0 && conversation.length === 0 && !plan && (
+              <div className="mb-3">
+                <p className="text-[10px] text-zinc-600 uppercase tracking-wider mb-2">Recent</p>
+                <div className="flex flex-wrap gap-1.5">
+                  {chatHistory.slice(0, 5).map((item, i) => (
+                    <Badge
+                      key={i}
+                      variant="outline"
+                      className="cursor-pointer text-[10px] border-zinc-700 text-zinc-400 hover:border-zinc-500"
+                      onClick={() => {
+                        setPlan(item.plan);
+                        setPrompt(item.prompt);
+                        toast.success("Restored from history");
+                      }}
+                    >
+                      {item.prompt.slice(0, 30)}...
+                    </Badge>
+                  ))}
+                </div>
+              </div>
+            )}
+            <div className="flex gap-2">
+              <div className="relative flex-1">
+                <textarea
+                  ref={inputRef}
+                  placeholder="Describe your server..."
+                  value={prompt}
+                  maxLength={8064}
+                  onChange={(e) => {
+                    if (e.target.value.length <= 8064) {
+                      setPrompt(e.target.value);
+                      e.currentTarget.style.height = "44px";
+                      e.currentTarget.style.height = `${Math.min(e.currentTarget.scrollHeight, 300)}px`;
+                    }
+                  }}
+                  className="bg-zinc-900 border border-zinc-700 text-white min-h-[44px] max-h-[300px] resize-none text-sm w-full rounded-lg px-3 py-2.5 focus:outline-none focus:border-blue-500/50 placeholder-zinc-600 overflow-y-auto"
+                  rows={1}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter" && !e.shiftKey) {
+                      e.preventDefault();
+                      handleGenerate();
+                    }
+                  }}
+                />
+                <span className="absolute bottom-1.5 right-2 text-[10px] text-zinc-600">{prompt.length}/8064</span>
+              </div>
+              <Button
+                onClick={handleGenerate}
+                disabled={loading || !prompt.trim()}
+                className="bg-blue-600 hover:bg-blue-700 text-white h-[44px] px-5"
+              >
+                {loading ? "..." : "Commit"}
+              </Button>
+            </div>
+            <p className="text-[10px] text-zinc-700 mt-1.5 text-center">Enter to send · Shift+Enter for new line</p>
+          </div>
+        </div>
+
+        <div className="w-72 border-l border-zinc-800 p-4 bg-zinc-950/40 flex flex-col">
+          <h3 className="text-xs font-semibold text-zinc-500 uppercase tracking-wider mb-3 flex items-center gap-1.5">
+            <Terminal className="w-3 h-3 text-cyan-400" />
+            Logs
+          </h3>
+          {executing && (
+            <Progress value={progress} className="mb-3 h-1 bg-zinc-800 [&>div]:bg-gradient-to-r [&>div]:from-blue-500 [&>div]:to-purple-500" />
+          )}
+          <ScrollArea className="flex-1">
+            <div className="font-mono text-[10px] space-y-1">
+              {logs.length === 0 ? (
+                <p className="text-zinc-700">No activity yet</p>
+              ) : (
+                logs.map((log, i) => (
+                  <div key={i} className={`flex items-start gap-1.5 ${
+                    log.type === "error" ? "text-red-400" :
+                    log.type === "ok" ? "text-green-400" :
+                    log.type === "sync" ? "text-cyan-400" :
+                    "text-zinc-400"
+                  }`}>
+                    <span className="shrink-0">
+                      {log.type === "ok" && <CheckCircle2 className="w-2.5 h-2.5 mt-0.5" />}
+                      {log.type === "error" && <AlertCircle className="w-2.5 h-2.5 mt-0.5" />}
+                      {log.type === "sync" && <Bot className="w-2.5 h-2.5 mt-0.5" />}
+                      {log.type === "done" && <CheckCircle2 className="w-2.5 h-2.5 mt-0.5" />}
+                    </span>
+                    <span>{log.message}</span>
+                  </div>
+                ))
+              )}
+              <div ref={logEndRef} />
+            </div>
+          </ScrollArea>
+        </div>
       </div>
 
       <Dialog open={showConfirm} onOpenChange={setShowConfirm}>
