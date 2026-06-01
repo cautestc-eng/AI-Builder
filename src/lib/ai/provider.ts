@@ -14,38 +14,23 @@ class NVIDIAProvider implements AIProvider {
   }
 
   async generate(prompt: string): Promise<ServerPlan> {
-    const systemPrompt = `You are a Discord server architect. Generate a complete server structure as STRICT JSON only.
-    Follow this exact format, NO markdown, NO code fences, NO extra text:
-{
-  "roles": [
-    { "name": "RoleName", "permissions": ["PERMISSION_NAME"], "color": "#hex" }
-  ],
-  "channels": {
-    "text": ["channel-name"],
-    "voice": ["Voice Channel"]
-  },
-  "category_structure": [
-    { "name": "CATEGORY", "channels": ["channel-name"] }
-  ]
-}
+    const systemPrompt = `You are a Discord server architect. Return ONLY valid JSON. No markdown, no code fences, no explanations, no extra text. Start with { and end with }.
+
+Required JSON format:
+{"roles":[{"name":"RoleName","permissions":["PERMISSION_NAME"],"color":"#hex"}],"channels":{"text":["channel-name"],"voice":["Voice Channel"]},"category_structure":[{"name":"CATEGORY","channels":["channel-name"]}]}
 
 Available permissions: CREATE_INSTANT_INVITE, KICK_MEMBERS, BAN_MEMBERS, ADMINISTRATOR, MANAGE_CHANNELS, MANAGE_GUILD, ADD_REACTIONS, VIEW_AUDIT_LOG, PRIORITY_SPEAKER, STREAM, VIEW_CHANNEL, SEND_MESSAGES, SEND_TTS_MESSAGES, MANAGE_MESSAGES, EMBED_LINKS, ATTACH_FILES, READ_MESSAGE_HISTORY, MENTION_EVERYONE, USE_EXTERNAL_EMOJIS, CONNECT, SPEAK, MUTE_MEMBERS, DEAFEN_MEMBERS, MOVE_MEMBERS, USE_VAD, CHANGE_NICKNAME, MANAGE_NICKNAMES, MANAGE_ROLES, MANAGE_WEBHOOKS, MANAGE_EMOJIS_AND_STICKERS, USE_APPLICATION_COMMANDS, MODERATE_MEMBERS
 
-Rules:
-- Channel names must be lowercase-kebab-case for text, Title Case for voice
-- Category names are UPPERCASE
-- Always include @everyone role with basic permissions
-- Generate 3-8 roles, 4-10 text channels, 2-5 voice channels
-- Every channel must belong to a category`;
+Rules: lowercase-kebab text channels, Title Case voice channels, UPPERCASE categories. Always include @everyone. Generate 3-8 roles, 4-10 text channels, 2-5 voice channels. Every channel belongs to a category.`;
 
     const body = {
-      model: "nvidia/nemotron-3-nano-30b-a3b",
+      model: "nvidia/llama-3.3-nemotron-super-49b-v1",
       messages: [
         { role: "system", content: systemPrompt },
-        { role: "user", content: `Generate a Discord server structure for: ${prompt}` },
+        { role: "user", content: `Generate a Discord server structure for: ${prompt}. Return ONLY the JSON object.` },
       ],
-      temperature: 0.2,
-      max_tokens: 2000,
+      temperature: 0.1,
+      max_tokens: 1500,
     };
 
     const res = await fetch(`${NVIDIA_API_URL}/chat/completions`, {
@@ -58,27 +43,31 @@ Rules:
     });
 
     if (!res.ok) {
-      throw new Error(`NVIDIA API error: ${res.status} ${await res.text()}`);
+      const text = await res.text();
+      throw new Error(`NVIDIA API error: ${res.status} ${text}`);
     }
 
     const data = await res.json();
     const content = data.choices?.[0]?.message?.content || "";
-    return this.parseResponse(content);
-  }
 
-  private parseResponse(content: string): ServerPlan {
     const jsonMatch = content.match(/\{[\s\S]*\}/);
-    if (!jsonMatch) throw new Error("No JSON found in AI response");
+    if (!jsonMatch) {
+      throw new Error(`No JSON found in AI response. Raw: ${content.slice(0, 500)}`);
+    }
 
-    const parsed = JSON.parse(jsonMatch[0]);
-    return {
-      roles: parsed.roles || [],
-      channels: {
-        text: parsed.channels?.text || [],
-        voice: parsed.channels?.voice || [],
-      },
-      category_structure: parsed.category_structure || [],
-    };
+    try {
+      const parsed = JSON.parse(jsonMatch[0]);
+      return {
+        roles: parsed.roles || [],
+        channels: {
+          text: parsed.channels?.text || [],
+          voice: parsed.channels?.voice || [],
+        },
+        category_structure: parsed.category_structure || [],
+      };
+    } catch (e: any) {
+      throw new Error(`Failed to parse AI JSON: ${e.message}. Raw: ${jsonMatch[0].slice(0, 300)}`);
+    }
   }
 }
 
