@@ -1,6 +1,6 @@
 import { ServerPlan } from "@/types";
 
-const NVIDIA_API_URL = "https://api.nvcf.nvidia.com/v2/nvcf/pexec/functions";
+const NVIDIA_API_URL = "https://integrate.api.nvidia.com/v1";
 
 interface AIProvider {
   generate(prompt: string): Promise<ServerPlan>;
@@ -39,7 +39,7 @@ Rules:
 - Every channel must belong to a category`;
 
     const body = {
-      model: "meta/llama-3.1-70b-instruct",
+      model: "nvidia/nemotron-3-nano-30b-a3b",
       messages: [
         { role: "system", content: systemPrompt },
         { role: "user", content: `Generate a Discord server structure for: ${prompt}` },
@@ -48,7 +48,7 @@ Rules:
       max_tokens: 2000,
     };
 
-    const res = await fetch(NVIDIA_API_URL, {
+    const res = await fetch(`${NVIDIA_API_URL}/chat/completions`, {
       method: "POST",
       headers: {
         "Authorization": `Bearer ${this.apiKey}`,
