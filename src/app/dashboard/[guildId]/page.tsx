@@ -52,10 +52,14 @@ export default function GuildDashboard() {
   const [editing, setEditing] = useState(false);
   const [botMissing, setBotMissing] = useState(false);
   const [warnings, setWarnings] = useState<string[]>([]);
+  const [pageLoading, setPageLoading] = useState(true);
   const logEndRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    fetch(`/api/guilds/${guildId}`)
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 10000);
+
+    fetch(`/api/guilds/${guildId}`, { signal: controller.signal })
       .then((r) => r.json())
       .then((data) => {
         if (data.guild) {
@@ -63,8 +67,13 @@ export default function GuildDashboard() {
           if (!data.guild.bot_installed) setBotMissing(true);
         }
         setVersions(data.versions || []);
+        setPageLoading(false);
       })
-      .catch(() => toast.error("Failed to load guild data"));
+      .catch(() => {
+        toast.error("Failed to load guild data");
+        setPageLoading(false);
+      })
+      .finally(() => clearTimeout(timeout));
   }, [guildId]);
 
   useEffect(() => {
@@ -213,10 +222,18 @@ export default function GuildDashboard() {
 
   const inviteBotUrl = `https://discord.com/api/oauth2/authorize?client_id=${process.env.NEXT_PUBLIC_DISCORD_CLIENT_ID}&permissions=8&scope=bot%20applications.commands&guild_id=${guildId}`;
 
-  if (!guild) {
+  if (pageLoading) {
     return (
       <div className="min-h-screen bg-black flex items-center justify-center">
         <div className="animate-spin w-8 h-8 border-2 border-blue-500 border-t-transparent rounded-full" />
+      </div>
+    );
+  }
+
+  if (!guild) {
+    return (
+      <div className="min-h-screen bg-black flex items-center justify-center">
+        <p className="text-zinc-500">Could not load server data</p>
       </div>
     );
   }
