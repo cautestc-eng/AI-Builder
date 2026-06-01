@@ -55,6 +55,7 @@ export default function GuildDashboard() {
   const [warnings, setWarnings] = useState<string[]>([]);
   const [pageLoading, setPageLoading] = useState(true);
   const logEndRef = useRef<HTMLDivElement>(null);
+  const inputRef = useRef<HTMLTextAreaElement>(null);
 
   const [chatHistory, setChatHistory] = useState<{ prompt: string; plan: ServerPlan; timestamp: number }[]>([]);
   const [conversation, setConversation] = useState<{ role: "user" | "assistant"; content: string }[]>([]);
@@ -71,6 +72,13 @@ export default function GuildDashboard() {
       localStorage.setItem(`chat_history_${guildId}`, JSON.stringify(chatHistory));
     }
   }, [chatHistory, guildId]);
+
+  useEffect(() => {
+    if (inputRef.current) {
+      inputRef.current.style.height = "44px";
+      inputRef.current.style.height = `${Math.min(inputRef.current.scrollHeight, 300)}px`;
+    }
+  }, [prompt]);
 
   useEffect(() => {
     const controller = new AbortController();
@@ -374,19 +382,30 @@ export default function GuildDashboard() {
                 </div>
               )}
               <div className="flex gap-2">
-                <Textarea
-                  placeholder="Describe your server..."
-                  value={prompt}
-                  onChange={(e) => setPrompt(e.target.value)}
-                  className="bg-zinc-900 border-zinc-700 text-white min-h-[44px] max-h-[120px] resize-none text-sm flex-1"
-                  rows={1}
-                  onKeyDown={(e) => {
-                    if (e.key === "Enter" && !e.shiftKey) {
-                      e.preventDefault();
-                      handleGenerate();
-                    }
-                  }}
-                />
+                <div className="relative flex-1">
+                  <textarea
+                    ref={inputRef}
+                    placeholder="Describe your server..."
+                    value={prompt}
+                    maxLength={8064}
+                    onChange={(e) => {
+                      if (e.target.value.length <= 8064) {
+                        setPrompt(e.target.value);
+                        e.currentTarget.style.height = "44px";
+                        e.currentTarget.style.height = `${Math.min(e.currentTarget.scrollHeight, 300)}px`;
+                      }
+                    }}
+                    className="bg-zinc-900 border border-zinc-700 text-white min-h-[44px] max-h-[300px] resize-none text-sm w-full rounded-lg px-3 py-2.5 focus:outline-none focus:border-blue-500/50 placeholder-zinc-600 overflow-y-auto"
+                    rows={1}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter" && !e.shiftKey) {
+                        e.preventDefault();
+                        handleGenerate();
+                      }
+                    }}
+                  />
+                  <span className="absolute bottom-1.5 right-2 text-[10px] text-zinc-600">{prompt.length}/8064</span>
+                </div>
                 <Button
                   onClick={handleGenerate}
                   disabled={loading || !prompt.trim()}
