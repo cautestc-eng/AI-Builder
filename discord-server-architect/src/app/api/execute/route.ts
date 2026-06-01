@@ -2,6 +2,9 @@ import { NextRequest, NextResponse } from "next/server";
 import { cookies } from "next/headers";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { validatePlan, sanitizePlan } from "@/lib/discord/validate";
+import { executePlan } from "@/lib/discord/executor";
+
+export const maxDuration = 300;
 
 export async function POST(req: NextRequest) {
   const cookieStore = await cookies();
@@ -35,7 +38,7 @@ export async function POST(req: NextRequest) {
       .insert({
         guild_id,
         version_id: version_id || null,
-        status: "pending",
+        status: "running",
         logs: [],
       })
       .select()
@@ -45,58 +48,30 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: executionError.message }, { status: 500 });
     }
 
-    const botPayload = {
-      guildId: guild_id,
-      plan: sanitized,
-      executionId: execution.id,
-      token: process.env.DISCORD_BOT_TOKEN,
-    };
-
-    const botUrl = process.env.BOT_SERVICE_URL || "http://localhost:4000";
-
-    const botRes = await fetch(`${botUrl}/execute`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(botPayload),
-      signal: AbortSignal.timeout(120000),
-    });
-
-    if (!botRes.ok) {
-      const botError = await botRes.text();
-      await supabase
-        .from("executions")
-        .update({ status: "failed", logs: [{ type: "error", message: botError, timestamp: new Date().toISOString() }] })
-        .eq("id", execution.id);
-
-      return NextResponse.json({ error: "Bot execution failed", details: botError }, { status: 500 });
-    }
-
-    const botResult = await botRes.json();
+    const result = await executePlan(guild_id, sanitized);
 
     await supabase
       .from("executions")
       .update({
-        status: botResult.success ? "success" : "failed",
-        logs: botResult.logs || [],
+        status: result.success ? "success" : "failed",
+        logs: result.logs,
       })
       .eq("id", execution.id);
 
-    if (botResult.success) {
-      await supabase
-        .from("server_versions")
-        .insert({
-          guild_id,
-          created_by: userId,
-          plan_json: sanitized,
-          version_name: `v${Date.now()}`,
-          execution_log: botResult.logs || [],
-        });
+    if (result.success) {
+      await supabase.from("server_versions").insert({
+        guild_id,
+        created_by: userId,
+        plan_json: sanitized,
+        version_name: `v${Date.now()}`,
+        execution_log: result.logs,
+      });
     }
 
     return NextResponse.json({
-      success: botResult.success,
+      success: result.success,
       executionId: execution.id,
-      logs: botResult.logs || [],
+      logs: result.logs,
     });
   } catch (error) {
     console.error("Execution error:", error);

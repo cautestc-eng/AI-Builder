@@ -109,13 +109,4 @@ export function canManageGuild(permissions: string): boolean {
   return hasPermission(permissions, "MANAGE_GUILD") || hasPermission(permissions, "ADMINISTRATOR");
 }
 
-export async function verifyBotInGuild(guildId: string): Promise<boolean> {
-  const res = await fetch(`${DISCORD_API}/guilds/${guildId}`, {
-    headers: {
-      Authorization: `Bot ${process.env.DISCORD_BOT_TOKEN}`,
-    },
-  });
-  return res.ok;
-}
-
 export { PERMISSION_FLAGS };

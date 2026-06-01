@@ -40,6 +40,4 @@ yarn-error.log*
 *.tsbuildinfo
 next-env.d.ts
 
-# bot service (separate deployment)
-bot/node_modules
-bot/dist
+

@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { cookies } from "next/headers";
-import { fetchGuilds, isOwner, canManageGuild, verifyBotInGuild } from "@/lib/discord/oauth";
+import { fetchGuilds, isOwner, canManageGuild } from "@/lib/discord/oauth";
+import { verifyBotInGuild } from "@/lib/discord/executor";
 import { createAdminClient } from "@/lib/supabase/admin";
 
 export async function GET(req: NextRequest) {
