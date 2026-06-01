@@ -33,6 +33,13 @@ export async function POST(req: NextRequest) {
     const sanitized = sanitizePlan(plan_json);
     const supabase = createAdminClient();
 
+    await supabase.from("guilds").upsert({
+      id: guild_id,
+      name: guild_id,
+      owner_id: userId,
+      bot_installed: true,
+    }, { onConflict: "id" }).maybeSingle();
+
     const { data: execution, error: executionError } = await supabase
       .from("executions")
       .insert({
