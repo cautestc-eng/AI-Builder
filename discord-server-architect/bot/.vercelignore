@@ -1,0 +1,2 @@
+# Bot will not be built by Vercel
+output = "standalone"
