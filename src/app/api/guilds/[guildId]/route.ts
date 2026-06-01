@@ -37,7 +37,7 @@ export async function GET(
   if (!supabaseUrl || supabaseUrl === "your_supabase_url") {
     const name = await fetchGuildName(guildId);
     return NextResponse.json({
-      guild: { id: guildId, name: name || guildId, bot_installed: true },
+      guild: { id: guildId, name: name || guildId.slice(0, 8), bot_installed: true },
       versions: [],
       executions: [],
     });
@@ -85,7 +85,7 @@ export async function GET(
   } catch {
     const name = await fetchGuildName(guildId);
     return NextResponse.json({
-      guild: { id: guildId, name: name || guildId, bot_installed: true },
+      guild: { id: guildId, name: name || guildId.slice(0, 8), bot_installed: true },
       versions: [],
       executions: [],
     });

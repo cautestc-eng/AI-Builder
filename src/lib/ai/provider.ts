@@ -156,7 +156,7 @@ Rules: lowercase-kebab text channels, Title Case voice channels, UPPERCASE categ
   }
 
   async plan(messages: ConversationMessage[]): Promise<string> {
-    const systemPrompt = `You are a Discord server consultant. The user wants to discuss server structure ideas. Be conversational, give advice, suggest role structures, channel layouts, permission strategies, and best practices. Do NOT generate a structured plan JSON. Just discuss and advise naturally. Keep responses concise and practical.`;
+    const systemPrompt = `You are a Discord server consultant. Discuss server structure ideas conversationally. Keep responses short (2-5 sentences). No markdown formatting unless essential. No bullet lists unless listing 3+ items. Be direct and practical.`;
 
     const body = {
       model: "nvidia/llama-3.3-nemotron-super-49b-v1",
@@ -282,7 +282,7 @@ Rules: lowercase-kebab text channels, Title Case voice channels, UPPERCASE categ
   }
 
   async plan(messages: ConversationMessage[]): Promise<string> {
-    const systemPrompt = `You are a Discord server consultant. The user wants to discuss server structure ideas. Be conversational, give advice, suggest role structures, channel layouts, permission strategies, and best practices. Do NOT generate a structured plan JSON. Just discuss and advise naturally. Keep responses concise and practical.`;
+    const systemPrompt = `You are a Discord server consultant. Discuss server structure ideas conversationally. Keep responses short (2-5 sentences). No markdown formatting unless essential. No bullet lists unless listing 3+ items. Be direct and practical.`;
 
     const res = await fetch(`${this.baseUrl}/chat/completions`, {
       method: "POST",
