@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { cookies } from "next/headers";
 import { createAIProvider, getTemplate, ConversationMessage } from "@/lib/ai/provider";
 import { validatePlan, sanitizePlan } from "@/lib/discord/validate";
+import { checkRateLimit } from "@/lib/rate-limit";
 
 export async function POST(req: NextRequest) {
   const cookieStore = await cookies();
@@ -9,6 +10,13 @@ export async function POST(req: NextRequest) {
 
   if (!userId) {
     return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
+  }
+
+  const rateCheck = await checkRateLimit(userId);
+  if (!rateCheck.allowed) {
+    return NextResponse.json({
+      error: `Daily limit reached (${rateCheck.limit}/day). Try again tomorrow.`,
+    }, { status: 429 });
   }
 
   try {

@@ -4,6 +4,23 @@ import { createAdminClient } from "@/lib/supabase/admin";
 
 export const maxDuration = 15;
 
+const DISCORD_API = "https://discord.com/api/v10";
+
+async function fetchGuildName(guildId: string): Promise<string | null> {
+  const token = process.env.DISCORD_BOT_TOKEN;
+  if (!token) return null;
+  try {
+    const res = await fetch(`${DISCORD_API}/guilds/${guildId}`, {
+      headers: { Authorization: `Bot ${token}` },
+    });
+    if (!res.ok) return null;
+    const data = await res.json();
+    return data.name || null;
+  } catch {
+    return null;
+  }
+}
+
 export async function GET(
   req: NextRequest,
   { params }: { params: Promise<{ guildId: string }> }
@@ -18,8 +35,9 @@ export async function GET(
 
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
   if (!supabaseUrl || supabaseUrl === "your_supabase_url") {
+    const name = await fetchGuildName(guildId);
     return NextResponse.json({
-      guild: { id: guildId, bot_installed: true },
+      guild: { id: guildId, name: name || guildId, bot_installed: true },
       versions: [],
       executions: [],
     });
@@ -50,14 +68,24 @@ export async function GET(
       ]),
     ]);
 
+    if (guild && guild.name) {
+      return NextResponse.json({
+        guild,
+        versions: versions || [],
+        executions: executions || [],
+      });
+    }
+
+    const name = await fetchGuildName(guildId);
     return NextResponse.json({
-      guild: guild || { id: guildId, bot_installed: true },
+      guild: guild || { id: guildId, name: name || guildId, bot_installed: true },
       versions: versions || [],
       executions: executions || [],
     });
   } catch {
+    const name = await fetchGuildName(guildId);
     return NextResponse.json({
-      guild: { id: guildId, bot_installed: true },
+      guild: { id: guildId, name: name || guildId, bot_installed: true },
       versions: [],
       executions: [],
     });
