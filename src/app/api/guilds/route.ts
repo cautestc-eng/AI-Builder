@@ -42,15 +42,7 @@ export async function GET(req: NextRequest) {
   for (let i = 0; i < needsCheck.length; i++) {
     const r = results[i];
     if (r.status !== "fulfilled") continue;
-    const botInstalled = r.value;
-    if (botInstalled) {
-      await supabase.from("guilds").upsert({
-        id: needsCheck[i].id,
-        name: needsCheck[i].name,
-        icon: needsCheck[i].icon,
-        owner_id: needsCheck[i].owner_id || userId,
-        bot_installed: true,
-      }, { onConflict: "id" }).maybeSingle();
+    if (r.value) {
       installedMap.set(needsCheck[i].id, true);
     }
   }
@@ -60,6 +52,17 @@ export async function GET(req: NextRequest) {
     owner_id: g.owner_id || userId,
     bot_installed: installedMap.get(g.id) ?? false,
   }));
+
+  // Upsert all accessible guilds so names persist for detail page
+  for (const g of accessibleGuilds) {
+    await supabase.from("guilds").upsert({
+      id: g.id,
+      name: g.name,
+      icon: g.icon,
+      owner_id: g.owner_id || userId,
+      bot_installed: g.bot_installed,
+    }, { onConflict: "id" }).maybeSingle();
+  }
 
   return NextResponse.json({ guilds: accessibleGuilds });
 }

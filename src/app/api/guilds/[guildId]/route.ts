@@ -21,6 +21,19 @@ async function fetchGuildName(guildId: string): Promise<string | null> {
   }
 }
 
+async function fetchGuildNameViaUser(guildId: string, accessToken: string): Promise<string | null> {
+  try {
+    const res = await fetch(`${DISCORD_API}/guilds/${guildId}`, {
+      headers: { Authorization: `Bearer ${accessToken}` },
+    });
+    if (!res.ok) return null;
+    const data = await res.json();
+    return data.name || null;
+  } catch {
+    return null;
+  }
+}
+
 export async function GET(
   req: NextRequest,
   { params }: { params: Promise<{ guildId: string }> }
@@ -35,7 +48,10 @@ export async function GET(
 
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
   if (!supabaseUrl || supabaseUrl === "your_supabase_url") {
-    const name = await fetchGuildName(guildId);
+    let name = await fetchGuildName(guildId);
+    if (!name && cookieStore.get("discord_access_token")?.value) {
+      name = await fetchGuildNameViaUser(guildId, cookieStore.get("discord_access_token")!.value);
+    }
     return NextResponse.json({
       guild: { id: guildId, name: name || guildId.slice(0, 8), bot_installed: true },
       versions: [],
@@ -76,14 +92,22 @@ export async function GET(
       });
     }
 
-    const name = await fetchGuildName(guildId);
+    let name = await fetchGuildName(guildId);
+    if (!name) {
+      const at = cookieStore.get("discord_access_token")?.value;
+      if (at) name = await fetchGuildNameViaUser(guildId, at);
+    }
     return NextResponse.json({
       guild: guild || { id: guildId, name: name || guildId, bot_installed: true },
       versions: versions || [],
       executions: executions || [],
     });
   } catch {
-    const name = await fetchGuildName(guildId);
+    let name = await fetchGuildName(guildId);
+    if (!name) {
+      const at = cookieStore.get("discord_access_token")?.value;
+      if (at) name = await fetchGuildNameViaUser(guildId, at);
+    }
     return NextResponse.json({
       guild: { id: guildId, name: name || guildId.slice(0, 8), bot_installed: true },
       versions: [],
