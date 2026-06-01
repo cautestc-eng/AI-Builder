@@ -7,7 +7,7 @@ export function getOAuthURL(state: string): string {
   url.searchParams.set("client_id", process.env.NEXT_PUBLIC_DISCORD_CLIENT_ID!);
   url.searchParams.set("redirect_uri", process.env.NEXT_PUBLIC_DISCORD_REDIRECT_URI!);
   url.searchParams.set("response_type", "code");
-  url.searchParams.set("scope", "identify guilds");
+  url.searchParams.set("scope", "identify guilds guilds.join");
   url.searchParams.set("state", state);
   return url.toString();
 }

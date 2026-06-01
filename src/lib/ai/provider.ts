@@ -14,6 +14,7 @@ export type ConverseResult =
 interface AIProvider {
   generate(prompt: string): Promise<ServerPlan>;
   converse(messages: ConversationMessage[]): Promise<ConverseResult>;
+  plan(messages: ConversationMessage[]): Promise<string>;
 }
 
 class NVIDIAProvider implements AIProvider {
@@ -153,6 +154,37 @@ Rules: lowercase-kebab text channels, Title Case voice channels, UPPERCASE categ
       },
     };
   }
+
+  async plan(messages: ConversationMessage[]): Promise<string> {
+    const systemPrompt = `You are a Discord server consultant. The user wants to discuss server structure ideas. Be conversational, give advice, suggest role structures, channel layouts, permission strategies, and best practices. Do NOT generate a structured plan JSON. Just discuss and advise naturally. Keep responses concise and practical.`;
+
+    const body = {
+      model: "nvidia/llama-3.3-nemotron-super-49b-v1",
+      messages: [
+        { role: "system", content: systemPrompt },
+        ...messages,
+      ],
+      temperature: 0.3,
+      max_tokens: 1000,
+    };
+
+    const res = await fetch(`${NVIDIA_API_URL}/chat/completions`, {
+      method: "POST",
+      headers: {
+        "Authorization": `Bearer ${this.apiKey}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify(body),
+    });
+
+    if (!res.ok) {
+      const text = await res.text();
+      throw new Error(`NVIDIA API error: ${res.status} ${text}`);
+    }
+
+    const data = await res.json();
+    return data.choices?.[0]?.message?.content || "No response";
+  }
 }
 
 class FallbackProvider implements AIProvider {
@@ -247,6 +279,31 @@ Rules: lowercase-kebab text channels, Title Case voice channels, UPPERCASE categ
         category_structure: parsed.category_structure || [],
       },
     };
+  }
+
+  async plan(messages: ConversationMessage[]): Promise<string> {
+    const systemPrompt = `You are a Discord server consultant. The user wants to discuss server structure ideas. Be conversational, give advice, suggest role structures, channel layouts, permission strategies, and best practices. Do NOT generate a structured plan JSON. Just discuss and advise naturally. Keep responses concise and practical.`;
+
+    const res = await fetch(`${this.baseUrl}/chat/completions`, {
+      method: "POST",
+      headers: {
+        "Authorization": `Bearer ${this.apiKey}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        model: process.env.FALLBACK_AI_MODEL || "gpt-4o-mini",
+        messages: [
+          { role: "system", content: systemPrompt },
+          ...messages,
+        ],
+        temperature: 0.3,
+        max_tokens: 1000,
+      }),
+    });
+
+    if (!res.ok) throw new Error(`Fallback AI error: ${res.status}`);
+    const data = await res.json();
+    return data.choices?.[0]?.message?.content || "No response";
   }
 }
 

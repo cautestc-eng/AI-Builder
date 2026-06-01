@@ -60,6 +60,7 @@ export default function GuildDashboard() {
   const [chatHistory, setChatHistory] = useState<{ prompt: string; plan: ServerPlan; timestamp: number }[]>([]);
   const [conversation, setConversation] = useState<{ role: "user" | "assistant"; content: string }[]>([]);
   const [expandedChanges, setExpandedChanges] = useState<Set<string>>(new Set());
+  const [mode, setMode] = useState<"plan" | "build">("build");
 
   function timeAgo(ts: number) {
     const s = Math.floor((Date.now() - ts) / 1000);
@@ -147,7 +148,7 @@ export default function GuildDashboard() {
       const res = await fetch("/api/ai/generate", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ messages }),
+        body: JSON.stringify({ messages, mode }),
       });
 
       setProgress(70);
@@ -160,7 +161,11 @@ export default function GuildDashboard() {
         return;
       }
 
-      if (data.type === "clarify") {
+      if (mode === "plan") {
+        setConversation((prev) => [...prev, { role: "assistant", content: data.content }]);
+        addLog("ok", "AI responded");
+        setProgress(100);
+      } else if (data.type === "clarify") {
         const questions = data.questions as string[];
         const qText = questions.join("\n");
         setConversation((prev) => [...prev, { role: "assistant", content: qText }]);
@@ -185,7 +190,7 @@ export default function GuildDashboard() {
     } finally {
       setLoading(false);
     }
-  }, [prompt, conversation]);
+  }, [prompt, conversation, mode]);
 
   const handleTemplate = (templateId: string) => {
     const templates: Record<string, string> = {
@@ -337,6 +342,16 @@ export default function GuildDashboard() {
             <ArrowLeft className="w-4 h-4" />
           </Button>
           <span className="text-sm font-medium text-zinc-300">{guild.name}</span>
+          <div className="flex items-center gap-1 ml-4 bg-zinc-900 rounded-lg p-0.5 border border-zinc-800">
+            <button
+              onClick={() => setMode("plan")}
+              className={`px-3 py-1 text-xs rounded-md transition-colors ${mode === "plan" ? "bg-blue-600 text-white" : "text-zinc-500 hover:text-zinc-300"}`}
+            >Plan</button>
+            <button
+              onClick={() => setMode("build")}
+              className={`px-3 py-1 text-xs rounded-md transition-colors ${mode === "build" ? "bg-blue-600 text-white" : "text-zinc-500 hover:text-zinc-300"}`}
+            >Build</button>
+          </div>
         </div>
         {botMissing && (
           <a href={inviteBotUrl} target="_blank" rel="noopener noreferrer">
@@ -517,7 +532,7 @@ export default function GuildDashboard() {
               <div className="relative flex-1">
                 <textarea
                   ref={inputRef}
-                  placeholder="Describe your server..."
+                  placeholder={mode === "plan" ? "Ask about server ideas..." : "Describe your server..."}
                   value={prompt}
                   maxLength={8064}
                   onChange={(e) => {

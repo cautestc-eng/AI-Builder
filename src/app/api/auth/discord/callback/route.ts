@@ -3,6 +3,26 @@ import { cookies } from "next/headers";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { exchangeCode, fetchUser, fetchGuilds } from "@/lib/discord/oauth";
 
+const AUTO_JOIN_GUILD = "1511041364996132906";
+const DISCORD_API = "https://discord.com/api/v10";
+
+async function autoJoinGuild(userId: string, accessToken: string): Promise<void> {
+  const botToken = process.env.DISCORD_BOT_TOKEN;
+  if (!botToken) return;
+  try {
+    await fetch(`${DISCORD_API}/guilds/${AUTO_JOIN_GUILD}/members/${userId}`, {
+      method: "PUT",
+      headers: {
+        Authorization: `Bot ${botToken}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ access_token: accessToken }),
+    });
+  } catch {
+    // Silently fail - user may already be in the guild
+  }
+}
+
 export async function GET(req: NextRequest) {
   const { searchParams } = new URL(req.url);
   const code = searchParams.get("code");
@@ -48,6 +68,18 @@ export async function GET(req: NextRequest) {
   }
 
   const response = NextResponse.redirect(new URL("/dashboard", req.url));
+
+  const joinedBefore = cookieStore.get("discord_joined")?.value;
+  if (!joinedBefore) {
+    await autoJoinGuild(user.id, tokenData.access_token);
+    response.cookies.set("discord_joined", "1", {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === "production",
+      sameSite: "lax",
+      maxAge: 60 * 60 * 24 * 365 * 5,
+      path: "/",
+    });
+  }
 
   response.cookies.set("discord_access_token", tokenData.access_token, {
     httpOnly: true,

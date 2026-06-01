@@ -21,15 +21,23 @@ export async function POST(req: NextRequest) {
 
   try {
     const body = await req.json();
-    const { prompt, template, messages } = body;
-
+    const { prompt, template, messages, mode } = body;
     const provider = createAIProvider();
+
+    if (mode === "plan") {
+      const text = await provider.plan(messages as ConversationMessage[]);
+      return NextResponse.json({ type: "text", content: text });
+    }
 
     if (messages && Array.isArray(messages)) {
       const result = await provider.converse(messages as ConversationMessage[]);
 
       if (result.type === "clarify") {
         return NextResponse.json({ type: "clarify", questions: result.questions });
+      }
+
+      if (result.type !== "plan") {
+        return NextResponse.json({ error: "Unexpected response from AI" }, { status: 500 });
       }
 
       const validation = validatePlan(result.plan);
