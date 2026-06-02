@@ -1,6 +1,6 @@
 import { ServerPlan } from "@/types";
 
-const NVIDIA_API_URL = "https://integrate.api.nvidia.com/v1";
+const GROQ_API_URL = "https://api.groq.com/openai/v1";
 
 export interface ConversationMessage {
   role: "system" | "user" | "assistant";
@@ -12,9 +12,9 @@ export type ConverseResult =
   | { type: "plan"; plan: ServerPlan };
 
 const MODELS = {
-  "nemotron": { id: "nvidia/llama-3.3-nemotron-super-49b-v1", provider: "nvidia" },
-  "llama-8b": { id: "meta/llama-3.1-8b-instruct", provider: "nvidia" },
-  "mixtral": { id: "mistralai/mixtral-8x7b-instruct-v0.1", provider: "nvidia" },
+  "llama-70b": { id: "llama-3.3-70b-versatile", provider: "groq" },
+  "llama-8b": { id: "llama-3.1-8b-instant", provider: "groq" },
+  "mixtral": { id: "mixtral-8x7b-32768", provider: "groq" },
 } as const;
 
 export type ModelKey = keyof typeof MODELS;
@@ -32,36 +32,58 @@ interface AIProvider {
   plan(messages: ConversationMessage[]): Promise<string>;
 }
 
-class NVIDIAProvider implements AIProvider {
+const SYSTEM_GENERATE = `You are a Discord server architect. Return ONLY valid JSON. No markdown, no explanations, no extra text.
+
+Required JSON:
+{"roles":[{"name":"RoleName","permissions":["PERMISSION_NAME"],"color":"#hex"}],"channels":{"text":["channel-name"],"voice":["Voice Channel"]},"category_structure":[{"name":"CATEGORY","channels":["channel-name"]}]}
+
+Permissions (use exact names): VIEW_CHANNEL, SEND_MESSAGES, MANAGE_MESSAGES, MENTION_EVERYONE, ADD_REACTIONS, EMBED_LINKS, ATTACH_FILES, READ_MESSAGE_HISTORY, CONNECT, SPEAK, MUTE_MEMBERS, DEAFEN_MEMBERS, MOVE_MEMBERS, MANAGE_CHANNELS, MANAGE_ROLES, MANAGE_GUILD, ADMINISTRATOR, KICK_MEMBERS, BAN_MEMBERS, CREATE_INSTANT_INVITE, PRIORITY_SPEAKER, STREAM, CHANGE_NICKNAME, MANAGE_NICKNAMES, MANAGE_WEBHOOKS, MANAGE_EMOJIS_AND_STICKERS, USE_EXTERNAL_EMOJIS, USE_APPLICATION_COMMANDS, MODERATE_MEMBERS, VIEW_AUDIT_LOG, MANAGE_THREADS, CREATE_PUBLIC_THREADS, CREATE_PRIVATE_THREADS, SEND_MESSAGES_IN_THREADS, USE_EMBEDDED_ACTIVITIES, REQUEST_TO_SPEAK, USE_VAD, SEND_TTS_MESSAGES, VIEW_GUILD_INSIGHTS
+
+Rules:
+- text channels: lowercase-kebab
+- voice channels: Title Case
+- categories: UPPERCASE
+- Always include @everyone role
+- Generate 3-8 roles, 4-10 text, 2-5 voice
+- Every channel belongs to a category`;
+
+const SYSTEM_CONVERSE = `You are a Discord server architect. Be concise.
+
+If you have enough info, return ONLY the plan JSON:
+{"roles":[{"name":"RoleName","permissions":["PERMISSION_NAME"],"color":"#hex"}],"channels":{"text":["channel-name"],"voice":["Voice Channel"]},"category_structure":[{"name":"CATEGORY","channels":["channel-name"]}]}
+
+If you truly have zero context, return ONLY:
+{"type":"clarify","questions":["Short question 1?","Short question 2?"]}
+
+Keep questions under 50 chars. When in doubt, guess and generate.
+
+Available permissions: VIEW_CHANNEL, SEND_MESSAGES, MANAGE_MESSAGES, MENTION_EVERYONE, ADD_REACTIONS, EMBED_LINKS, ATTACH_FILES, READ_MESSAGE_HISTORY, CONNECT, SPEAK, MUTE_MEMBERS, DEAFEN_MEMBERS, MOVE_MEMBERS, MANAGE_CHANNELS, MANAGE_ROLES, MANAGE_GUILD, ADMINISTRATOR, KICK_MEMBERS, BAN_MEMBERS, CREATE_INSTANT_INVITE, PRIORITY_SPEAKER, STREAM, CHANGE_NICKNAME, MANAGE_NICKNAMES, MANAGE_WEBHOOKS, MANAGE_EMOJIS_AND_STICKERS, USE_EXTERNAL_EMOJIS, USE_APPLICATION_COMMANDS, MODERATE_MEMBERS, VIEW_AUDIT_LOG, MANAGE_THREADS, CREATE_PUBLIC_THREADS, CREATE_PRIVATE_THREADS, SEND_MESSAGES_IN_THREADS, USE_EMBEDDED_ACTIVITIES, REQUEST_TO_SPEAK, USE_VAD, SEND_TTS_MESSAGES, VIEW_GUILD_INSIGHTS
+
+Rules: lowercase-kebab text, Title Case voice, UPPERCASE categories. Include @everyone. 3-8 roles, 4-10 text, 2-5 voice. Every channel in a category.`;
+
+const SYSTEM_PLAN = `You are a Discord server consultant. Keep responses under 3 sentences. No markdown. Be direct.`;
+
+class GroqProvider implements AIProvider {
   private apiKey: string;
   private modelId: string;
 
-  constructor(modelKey: string = "nemotron") {
-    this.apiKey = process.env.NVIDIA_API_KEY || "";
-    this.modelId = MODELS[modelKey as ModelKey]?.id || MODELS.nemotron.id;
+  constructor(modelKey: string = "llama-70b") {
+    this.apiKey = process.env.GROQ_API_KEY || "";
+    this.modelId = MODELS[modelKey as ModelKey]?.id || MODELS["llama-70b"].id;
   }
 
   async generate(prompt: string): Promise<ServerPlan> {
-    const systemPrompt = `You are a Discord server architect. Return ONLY valid JSON. No markdown, no code fences, no explanations, no extra text. Start with { and end with }.
-
-Required JSON format:
-{"roles":[{"name":"RoleName","permissions":["PERMISSION_NAME"],"color":"#hex"}],"channels":{"text":["channel-name"],"voice":["Voice Channel"]},"category_structure":[{"name":"CATEGORY","channels":["channel-name"]}]}
-
-Available permissions: CREATE_INSTANT_INVITE, KICK_MEMBERS, BAN_MEMBERS, ADMINISTRATOR, MANAGE_CHANNELS, MANAGE_GUILD, ADD_REACTIONS, VIEW_AUDIT_LOG, PRIORITY_SPEAKER, STREAM, VIEW_CHANNEL, SEND_MESSAGES, SEND_TTS_MESSAGES, MANAGE_MESSAGES, EMBED_LINKS, ATTACH_FILES, READ_MESSAGE_HISTORY, MENTION_EVERYONE, USE_EXTERNAL_EMOJIS, CONNECT, SPEAK, MUTE_MEMBERS, DEAFEN_MEMBERS, MOVE_MEMBERS, USE_VAD, CHANGE_NICKNAME, MANAGE_NICKNAMES, MANAGE_ROLES, MANAGE_WEBHOOKS, MANAGE_EMOJIS_AND_STICKERS, USE_APPLICATION_COMMANDS, MODERATE_MEMBERS
-
-Rules: lowercase-kebab text channels, Title Case voice channels, UPPERCASE categories. Always include @everyone. Generate 3-8 roles, 4-10 text channels, 2-5 voice channels. Every channel belongs to a category.`;
-
     const body = {
       model: this.modelId,
       messages: [
-        { role: "system", content: systemPrompt },
-        { role: "user", content: `Generate a Discord server structure for: ${prompt}. Return ONLY the JSON object.` },
+        { role: "system", content: SYSTEM_GENERATE },
+        { role: "user", content: `Generate a Discord server for: ${prompt}. Return ONLY JSON.` },
       ],
       temperature: 0.1,
-      max_tokens: 1500,
+      max_tokens: 1200,
     };
 
-    const res = await fetch(`${NVIDIA_API_URL}/chat/completions`, {
+    const res = await fetch(`${GROQ_API_URL}/chat/completions`, {
       method: "POST",
       headers: {
         "Authorization": `Bearer ${this.apiKey}`,
@@ -72,7 +94,7 @@ Rules: lowercase-kebab text channels, Title Case voice channels, UPPERCASE categ
 
     if (!res.ok) {
       const text = await res.text();
-      throw new Error(`NVIDIA API error: ${res.status} ${text}`);
+      throw new Error(`Groq API error: ${res.status} ${text}`);
     }
 
     const data = await res.json();
@@ -80,7 +102,7 @@ Rules: lowercase-kebab text channels, Title Case voice channels, UPPERCASE categ
 
     const jsonMatch = content.match(/\{[\s\S]*\}/);
     if (!jsonMatch) {
-      throw new Error(`No JSON found in AI response. Raw: ${content.slice(0, 500)}`);
+      throw new Error(`No JSON in AI response. Raw: ${content.slice(0, 300)}`);
     }
 
     try {
@@ -94,44 +116,22 @@ Rules: lowercase-kebab text channels, Title Case voice channels, UPPERCASE categ
         category_structure: parsed.category_structure || [],
       };
     } catch (e: any) {
-      throw new Error(`Failed to parse AI JSON: ${e.message}. Raw: ${jsonMatch[0].slice(0, 300)}`);
+      throw new Error(`Failed to parse AI JSON: ${e.message}. Raw: ${jsonMatch[0].slice(0, 200)}`);
     }
   }
 
   async converse(messages: ConversationMessage[]): Promise<ConverseResult> {
-    const systemPrompt = `You are a Discord server architect helping a user design a Discord server.
-
-Be proactive: make reasonable assumptions and generate a plan directly whenever you have enough context. Only ask questions if the request is truly ambiguous (e.g. "make a server" with no other details).
-
-## If you can generate a plan
-Return the server plan JSON directly (no wrapper):
-{"roles":[{"name":"RoleName","permissions":["PERMISSION_NAME"],"color":"#hex"}],"channels":{"text":["channel-name"],"voice":["Voice Channel"]},"category_structure":[{"name":"CATEGORY","channels":["channel-name"]}]}
-
-## If you absolutely cannot (truly zero context)
-Return ONLY this JSON:
-{"type":"clarify","questions":["Short question 1?","Short question 2?"]}
-
-Keep questions very short (under 50 chars) and only ask what's genuinely needed. When in doubt, make a reasonable guess and generate.
-
-## If you have enough info
-Return ONLY the server plan JSON (no wrapper, no extra text):
-{"roles":[{"name":"RoleName","permissions":["PERMISSION_NAME"],"color":"#hex"}],"channels":{"text":["channel-name"],"voice":["Voice Channel"]},"category_structure":[{"name":"CATEGORY","channels":["channel-name"]}]}
-
-Available permissions: CREATE_INSTANT_INVITE, KICK_MEMBERS, BAN_MEMBERS, ADMINISTRATOR, MANAGE_CHANNELS, MANAGE_GUILD, ADD_REACTIONS, VIEW_AUDIT_LOG, PRIORITY_SPEAKER, STREAM, VIEW_CHANNEL, SEND_MESSAGES, SEND_TTS_MESSAGES, MANAGE_MESSAGES, EMBED_LINKS, ATTACH_FILES, READ_MESSAGE_HISTORY, MENTION_EVERYONE, USE_EXTERNAL_EMOJIS, CONNECT, SPEAK, MUTE_MEMBERS, DEAFEN_MEMBERS, MOVE_MEMBERS, USE_VAD, CHANGE_NICKNAME, MANAGE_NICKNAMES, MANAGE_ROLES, MANAGE_WEBHOOKS, MANAGE_EMOJIS_AND_STICKERS, USE_APPLICATION_COMMANDS, MODERATE_MEMBERS
-
-Rules: lowercase-kebab text channels, Title Case voice channels, UPPERCASE categories. Always include @everyone. Generate 3-8 roles, 4-10 text channels, 2-5 voice channels. Every channel belongs to a category.`;
-
     const body = {
       model: this.modelId,
       messages: [
-        { role: "system", content: systemPrompt },
+        { role: "system", content: SYSTEM_CONVERSE },
         ...messages,
       ],
       temperature: 0.1,
-      max_tokens: 1500,
+      max_tokens: 1200,
     };
 
-    const res = await fetch(`${NVIDIA_API_URL}/chat/completions`, {
+    const res = await fetch(`${GROQ_API_URL}/chat/completions`, {
       method: "POST",
       headers: {
         "Authorization": `Bearer ${this.apiKey}`,
@@ -142,7 +142,7 @@ Rules: lowercase-kebab text channels, Title Case voice channels, UPPERCASE categ
 
     if (!res.ok) {
       const text = await res.text();
-      throw new Error(`NVIDIA API error: ${res.status} ${text}`);
+      throw new Error(`Groq API error: ${res.status} ${text}`);
     }
 
     const data = await res.json();
@@ -150,7 +150,7 @@ Rules: lowercase-kebab text channels, Title Case voice channels, UPPERCASE categ
 
     const jsonMatch = content.match(/\{[\s\S]*\}/);
     if (!jsonMatch) {
-      throw new Error(`No JSON in AI response. Raw: ${content.slice(0, 500)}`);
+      throw new Error(`No JSON in AI response. Raw: ${content.slice(0, 300)}`);
     }
 
     const parsed = JSON.parse(jsonMatch[0]);
@@ -173,19 +173,17 @@ Rules: lowercase-kebab text channels, Title Case voice channels, UPPERCASE categ
   }
 
   async plan(messages: ConversationMessage[]): Promise<string> {
-    const systemPrompt = `You are a Discord server consultant. Discuss server structure ideas conversationally. Keep responses short (2-5 sentences). No markdown formatting unless essential. No bullet lists unless listing 3+ items. Be direct and practical.`;
-
     const body = {
       model: this.modelId,
       messages: [
-        { role: "system", content: systemPrompt },
+        { role: "system", content: SYSTEM_PLAN },
         ...messages,
       ],
       temperature: 0.3,
-      max_tokens: 1000,
+      max_tokens: 400,
     };
 
-    const res = await fetch(`${NVIDIA_API_URL}/chat/completions`, {
+    const res = await fetch(`${GROQ_API_URL}/chat/completions`, {
       method: "POST",
       headers: {
         "Authorization": `Bearer ${this.apiKey}`,
@@ -196,150 +194,27 @@ Rules: lowercase-kebab text channels, Title Case voice channels, UPPERCASE categ
 
     if (!res.ok) {
       const text = await res.text();
-      throw new Error(`NVIDIA API error: ${res.status} ${text}`);
+      throw new Error(`Groq API error: ${res.status} ${text}`);
     }
 
-    const data = await res.json();
-    return data.choices?.[0]?.message?.content || "No response";
-  }
-}
-
-class FallbackProvider implements AIProvider {
-  private apiKey: string;
-  private baseUrl: string;
-
-  constructor() {
-    this.apiKey = process.env.FALLBACK_AI_API_KEY || "";
-    this.baseUrl = process.env.FALLBACK_AI_BASE_URL || "https://api.openai.com/v1";
-  }
-
-  async generate(prompt: string): Promise<ServerPlan> {
-    const res = await fetch(`${this.baseUrl}/chat/completions`, {
-      method: "POST",
-      headers: {
-        "Authorization": `Bearer ${this.apiKey}`,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        model: process.env.FALLBACK_AI_MODEL || "gpt-4o-mini",
-        messages: [
-          { role: "system", content: "You are a Discord server architect. Return ONLY valid JSON matching the required schema. No extra text, no markdown." },
-          { role: "user", content: prompt },
-        ],
-        temperature: 0.2,
-        max_tokens: 2000,
-      }),
-    });
-
-    if (!res.ok) throw new Error(`Fallback AI error: ${res.status}`);
-    const data = await res.json();
-    const content = data.choices?.[0]?.message?.content || "";
-    const jsonMatch = content.match(/\{[\s\S]*\}/);
-    if (!jsonMatch) throw new Error("No JSON in fallback response");
-    return JSON.parse(jsonMatch[0]);
-  }
-
-  async converse(messages: ConversationMessage[]): Promise<ConverseResult> {
-    const systemPrompt = `You are a Discord server architect helping a user design a Discord server.
-
-Be proactive: make reasonable assumptions and generate a plan directly whenever you have enough context. Only ask questions if the request is truly ambiguous (e.g. "make a server" with no other details).
-
-## If you can generate a plan
-Return the server plan JSON directly (no wrapper):
-{"roles":[{"name":"RoleName","permissions":["PERMISSION_NAME"],"color":"#hex"}],"channels":{"text":["channel-name"],"voice":["Voice Channel"]},"category_structure":[{"name":"CATEGORY","channels":["channel-name"]}]}
-
-## If you absolutely cannot (truly zero context)
-Return ONLY this JSON:
-{"type":"clarify","questions":["Short question 1?","Short question 2?"]}
-
-Keep questions under 50 chars. When in doubt, make a reasonable guess and generate.
-Return ONLY the server plan JSON:
-{"roles":[{"name":"RoleName","permissions":["PERMISSION_NAME"],"color":"#hex"}],"channels":{"text":["channel-name"],"voice":["Voice Channel"]},"category_structure":[{"name":"CATEGORY","channels":["channel-name"]}]}
-
-Rules: lowercase-kebab text channels, Title Case voice channels, UPPERCASE categories. Always include @everyone. Generate 3-8 roles, 4-10 text channels, 2-5 voice channels. Every channel belongs to a category.`;
-
-    const res = await fetch(`${this.baseUrl}/chat/completions`, {
-      method: "POST",
-      headers: {
-        "Authorization": `Bearer ${this.apiKey}`,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        model: process.env.FALLBACK_AI_MODEL || "gpt-4o-mini",
-        messages: [
-          { role: "system", content: systemPrompt },
-          ...messages,
-        ],
-        temperature: 0.2,
-        max_tokens: 2000,
-      }),
-    });
-
-    if (!res.ok) throw new Error(`Fallback AI error: ${res.status}`);
-    const data = await res.json();
-    const content = data.choices?.[0]?.message?.content || "";
-    const jsonMatch = content.match(/\{[\s\S]*\}/);
-    if (!jsonMatch) throw new Error("No JSON in fallback response");
-
-    const parsed = JSON.parse(jsonMatch[0]);
-    if (parsed.type === "clarify" && Array.isArray(parsed.questions)) {
-      return { type: "clarify", questions: parsed.questions };
-    }
-    return {
-      type: "plan",
-      plan: {
-        roles: parsed.roles || [],
-        channels: {
-          text: parsed.channels?.text || [],
-          voice: parsed.channels?.voice || [],
-        },
-        category_structure: parsed.category_structure || [],
-      },
-    };
-  }
-
-  async plan(messages: ConversationMessage[]): Promise<string> {
-    const systemPrompt = `You are a Discord server consultant. Discuss server structure ideas conversationally. Keep responses short (2-5 sentences). No markdown formatting unless essential. No bullet lists unless listing 3+ items. Be direct and practical.`;
-
-    const res = await fetch(`${this.baseUrl}/chat/completions`, {
-      method: "POST",
-      headers: {
-        "Authorization": `Bearer ${this.apiKey}`,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        model: process.env.FALLBACK_AI_MODEL || "gpt-4o-mini",
-        messages: [
-          { role: "system", content: systemPrompt },
-          ...messages,
-        ],
-        temperature: 0.3,
-        max_tokens: 1000,
-      }),
-    });
-
-    if (!res.ok) throw new Error(`Fallback AI error: ${res.status}`);
     const data = await res.json();
     return data.choices?.[0]?.message?.content || "No response";
   }
 }
 
 export function createAIProvider(modelKey?: string): AIProvider {
-  if (process.env.NVIDIA_API_KEY) {
-    return new NVIDIAProvider(modelKey);
+  if (process.env.GROQ_API_KEY) {
+    return new GroqProvider(modelKey);
   }
-  if (process.env.FALLBACK_AI_API_KEY) {
-    return new FallbackProvider();
-  }
-  throw new Error("No AI provider configured. Set NVIDIA_API_KEY or FALLBACK_AI_API_KEY");
+  throw new Error("No AI provider configured. Set GROQ_API_KEY");
 }
 
 const TEMPLATES: Record<string, string> = {
-  gaming: "A competitive gaming community with ranks for different games, a matchmaking system, voice channels for each game, and a leaderboard system.",
-  smp: "A Minecraft Survival Multiplayer server with player ranks, building competition channels, resource sharing categories, and event organization.",
-  community: "A general community hub with introduction channels, interest-based categories, event planning, and a support system.",
-  coding: "A programming community with language-specific channels, project showcase, code review system, and collaboration spaces.",
-  esports: "An esports team server with team roles, scrimmage scheduling, strategy discussion channels, and tournament organization.",
+  gaming: "A competitive gaming community with ranks for different games, matchmaking, voice channels per game, and leaderboards.",
+  smp: "A Minecraft Survival Multiplayer server with player ranks, building competitions, resource sharing, and events.",
+  community: "A general community hub with introductions, interest categories, events, and support system.",
+  coding: "A programming community with language channels, project showcase, code review, and collaboration spaces.",
+  esports: "An esports team server with team roles, scrim scheduling, strategy discussion, and tournament org.",
 };
 
 export function getTemplate(name: string): string | undefined {

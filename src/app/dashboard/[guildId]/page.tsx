@@ -62,7 +62,7 @@ export default function GuildDashboard() {
   const [conversation, setConversation] = useState<{ role: "user" | "assistant"; content: string }[]>([]);
   const [expandedChanges, setExpandedChanges] = useState<Set<string>>(new Set());
   const [mode, setMode] = useState<"plan" | "build">("build");
-  const [model, setModel] = useState("nemotron");
+  const [model, setModel] = useState("llama-70b");
 
   function timeAgo(ts: number) {
     const s = Math.floor((Date.now() - ts) / 1000);
@@ -576,8 +576,8 @@ export default function GuildDashboard() {
                 onChange={(e) => setModel(e.target.value)}
                 className="bg-zinc-900 border border-zinc-800 text-zinc-300 text-xs rounded-lg px-2 py-1 focus:outline-none focus:border-blue-500/50"
               >
-                <option value="nemotron">Nemotron 49B</option>
-                <option value="llama-8b">Llama 8B</option>
+                <option value="llama-70b">Llama 3.3 70B</option>
+                <option value="llama-8b">Llama 3.1 8B</option>
                 <option value="mixtral">Mixtral 8x7B</option>
               </select>
             </div>
