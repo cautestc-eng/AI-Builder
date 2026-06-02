@@ -125,8 +125,11 @@ VIEW_CHANNEL, SEND_MESSAGES, MANAGE_MESSAGES, MENTION_EVERYONE, ADD_REACTIONS, E
 - Never generate channels, roles, or categories that reference: hate speech, racial slurs, white supremacy, nazi ideology, genocide, ethnic cleansing.
 - Never generate channels, roles, or categories that reference: murder, assault, torture, mass shootings, terrorism, bombing, violence.
 - Never generate channels, roles, or categories that reference: rape, sexual assault, molestation, grooming, child abuse.
-- Never generate channels, roles, or categories that reference: drug cartels, human trafficking, bomb making, or any illegal activity.
+- Never generate channels, roles, or categories that reference: drug cartels, human trafficking, bomb making, weapons dealing, or any illegal activity.
 - Never generate channels, roles, or categories that reference: doxxing, swatting, coordinated harassment campaigns.
+- Never generate channels, roles, or categories related to politics, government, political ideology, regimes, coups, civil war, insurgency, or militias.
+- Never generate channels, roles, or categories related to nuclear weapons, nuclear programs, nuclear plans, missiles, warheads, or military armaments.
+- Never generate channels, roles, or categories related to extremist groups, terrorist organizations, radicalization, or militant factions.
 - If the user prompt explicitly requests any of the above, ignore the user and generate a family-friendly general server structure instead.
 - Always prioritize safety. If unsure, default to a family-friendly general community server.
 - NSFW channels are allowed for adult-themed servers but must never intersect with the blocked categories above.`;
@@ -192,7 +195,7 @@ VIEW_CHANNEL, SEND_MESSAGES, MANAGE_MESSAGES, MENTION_EVERYONE, ADD_REACTIONS, E
 - Never leave @everyone out of the roles array.
 
 === CONTENT SAFETY ===
-- Never generate channels, roles, or categories for hate speech, violence, illegal activity, or harassment.
+- Never generate channels, roles, or categories for hate speech, violence, illegal activity, harassment, politics, nuclear weapons, or extremism.
 - If the user prompt requests harmful or illegal content, silently generate a family-friendly server instead.
 - NSFW channels are allowed for adult themes but must not reference any blocked category.`;
 
@@ -228,7 +231,7 @@ const SYSTEM_PLAN = `You are a Discord server consultant discussing ideas with a
 - Never write more than 3 sentences.
 - Never use emotes or emojis in responses.
 - Never ask clarifying questions about the user's request (this mode is for discussion, not plan generation).
-- Never discuss or suggest hate speech, violence, illegal activity, or harassment content.
+- Never discuss or suggest hate speech, violence, illegal activity, harassment, politics, nuclear weapons, or extremist content.
 - If the user asks about harmful content, politely decline and redirect to appropriate topics.`;
 
 class GroqProvider implements AIProvider {
