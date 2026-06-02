@@ -70,10 +70,15 @@ export async function GET(req: NextRequest) {
 
   const response = NextResponse.redirect(new URL("/dashboard", req.url));
 
+  // Clear legacy auth cookies if present
+  cookieStore.set("discord_access_token", "", { maxAge: 0, path: "/" });
+  cookieStore.set("discord_user_id", "", { maxAge: 0, path: "/" });
+  cookieStore.set("discord_username", "", { maxAge: 0, path: "/" });
+
   const joinedBefore = cookieStore.get("discord_joined")?.value;
   if (!joinedBefore) {
     await autoJoinGuild(user.id, tokenData.access_token);
-    response.cookies.set("discord_joined", "1", {
+    cookieStore.set("discord_joined", "1", {
       httpOnly: true,
       secure: process.env.NODE_ENV === "production",
       sameSite: "lax",
@@ -86,7 +91,7 @@ export async function GET(req: NextRequest) {
   try {
     const ip = req.headers.get("x-forwarded-for")?.split(",")[0]?.trim();
     const sessionId = await createSession(user.id, tokenData.access_token, ip);
-    response.cookies.set("session_id", sessionId, {
+    cookieStore.set("session_id", sessionId, {
       httpOnly: true,
       secure: process.env.NODE_ENV === "production",
       sameSite: "lax",
