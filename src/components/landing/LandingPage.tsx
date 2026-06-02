@@ -7,7 +7,24 @@ import { ArrowRight, Server, Shield, History, Bot } from "lucide-react";
 
 export default function LandingPage() {
   const [mounted, setMounted] = useState(false);
+  const [error, setError] = useState<string | null>(null);
   useEffect(() => setMounted(true), []);
+
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const err = params.get("error");
+    if (err) {
+      const messages: Record<string, string> = {
+        missing_params: "Invalid OAuth response from Discord.",
+        state_mismatch: "Security check failed. Please try again.",
+        token_exchange_failed: "Failed to authenticate with Discord.",
+        fetch_user_failed: "Could not retrieve your Discord profile.",
+        fetch_guilds_failed: "Could not retrieve your Discord servers.",
+        session_failed: "Login succeeded but session setup failed. Make sure Supabase is configured and the sessions & security_logs tables exist. Run the schema from supabase/schema.sql.",
+      };
+      setError(messages[err] || `Unknown error: ${err}`);
+    }
+  }, []);
 
   const loginUrl = `/api/auth/discord`;
 
@@ -57,9 +74,14 @@ export default function LandingPage() {
             </h1>
 
             <p className="text-lg md:text-xl text-zinc-400 max-w-2xl mx-auto mb-10">
-              Describe your ideal server, preview every role and channel, then apply safely
-              with full version history and one-click rollback.
+              Describe your ideal Discord server and let AI generate the perfect structure — roles, channels, categories, and permissions.
             </p>
+
+            {error && (
+              <div className="mb-6 mx-auto max-w-lg bg-red-500/10 border border-red-500/30 rounded-lg px-4 py-3 text-red-400 text-sm">
+                {error}
+              </div>
+            )}
 
             <a href={loginUrl}>
               <Button size="lg" className="bg-blue-600 hover:bg-blue-700 text-white rounded-full px-8 py-6 text-lg">

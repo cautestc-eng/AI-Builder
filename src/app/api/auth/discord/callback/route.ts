@@ -90,7 +90,7 @@ export async function GET(req: NextRequest) {
       httpOnly: true,
       secure: process.env.NODE_ENV === "production",
       sameSite: "lax",
-      maxAge: 60 * 60 * 24 * 7, // cookie valid 7d (server session auto-extends on use)
+      maxAge: 60 * 60 * 24 * 7,
       path: "/",
     });
     await logAuthEvent("login_success", user.id, ip, { username: user.username });

@@ -22,6 +22,11 @@ export async function createSession(
   accessToken: string,
   ipAddress?: string
 ): Promise<string> {
+  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+  if (!supabaseUrl || supabaseUrl === "your_supabase_url") {
+    throw new Error("Supabase not configured: set NEXT_PUBLIC_SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY");
+  }
+
   const supabase = createAdminClient();
   const expiresAt = new Date(Date.now() + SESSION_TTL_MS).toISOString();
 
