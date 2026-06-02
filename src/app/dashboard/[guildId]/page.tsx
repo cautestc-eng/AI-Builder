@@ -424,7 +424,12 @@ export default function GuildDashboard() {
                         </div>
                       ))}
                       {plan.channels.text.map((ch, i) => (
-                        <div key={i} className="text-[11px] text-zinc-500 pl-3"># {ch}</div>
+                        <div key={i} className="text-[11px] text-zinc-500 pl-3 flex items-center gap-1.5">
+                          <span># {ch}</span>
+                          {plan.nsfw_channels?.includes(ch) && (
+                            <span className="text-[9px] font-semibold text-pink-400 bg-pink-500/10 px-1 rounded">NSFW</span>
+                          )}
+                        </div>
                       ))}
                       {plan.channels.voice.map((ch, i) => (
                         <div key={i} className="text-[11px] text-zinc-500 pl-3">🔊 {ch}</div>
@@ -488,7 +493,12 @@ export default function GuildDashboard() {
                           </div>
                         ))}
                         {v.plan_json.channels.text.map((ch, i) => (
-                          <div key={i} className="text-[11px] text-zinc-500 pl-3"># {ch}</div>
+                          <div key={i} className="text-[11px] text-zinc-500 pl-3 flex items-center gap-1.5">
+                            <span># {ch}</span>
+                            {v.plan_json.nsfw_channels?.includes(ch) && (
+                              <span className="text-[9px] font-semibold text-pink-400 bg-pink-500/10 px-1 rounded">NSFW</span>
+                            )}
+                          </div>
                         ))}
                         {v.plan_json.channels.voice.map((ch, i) => (
                           <div key={i} className="text-[11px] text-zinc-500 pl-3">🔊 {ch}</div>

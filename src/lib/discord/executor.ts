@@ -148,6 +148,7 @@ export async function executePlan(
         const parentId = findCategoryId(chName, plan.category_structure, createdCategories);
         const body: Record<string, any> = { name: chName, type: 0 };
         if (parentId) body.parent_id = parentId;
+        if (plan.nsfw_channels?.includes(chName)) body.nsfw = true;
         await discordFetch(`/guilds/${guildId}/channels`, {
           method: "POST",
           body: JSON.stringify(body),

@@ -3,6 +3,7 @@ import { createAIProvider, getTemplate, ConversationMessage } from "@/lib/ai/pro
 import { validatePlan, sanitizePlan } from "@/lib/discord/validate";
 import { checkRateLimit, incrementRateLimit } from "@/lib/rate-limit";
 import { verifyRequest, stripIdentityFields } from "@/lib/auth";
+import { checkPromptSafety, checkPlanSafety } from "@/lib/safety";
 
 export async function POST(req: NextRequest) {
   let verified;
@@ -33,6 +34,15 @@ export async function POST(req: NextRequest) {
     }
 
     if (messages && Array.isArray(messages)) {
+      for (const msg of messages) {
+        if (msg.role === "user") {
+          const msgSafety = checkPromptSafety(msg.content);
+          if (!msgSafety.allowed) {
+            return NextResponse.json({ error: msgSafety.reason }, { status: 422 });
+          }
+        }
+      }
+
       const result = await provider.converse(messages as ConversationMessage[]);
 
       if (result.type === "clarify") {
@@ -51,6 +61,11 @@ export async function POST(req: NextRequest) {
           error: "AI generated an invalid plan",
           details: validation.errors,
         }, { status: 422 });
+      }
+
+      const planSafety = checkPlanSafety(result.plan);
+      if (!planSafety.allowed) {
+        return NextResponse.json({ error: planSafety.reason }, { status: 422 });
       }
 
       const sanitized = sanitizePlan(result.plan);
@@ -73,6 +88,11 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "Prompt is required" }, { status: 400 });
     }
 
+    const safety = checkPromptSafety(finalPrompt);
+    if (!safety.allowed) {
+      return NextResponse.json({ error: safety.reason }, { status: 422 });
+    }
+
     const plan = await provider.generate(finalPrompt);
     const validation = validatePlan(plan);
     if (!validation.valid) {
@@ -80,6 +100,11 @@ export async function POST(req: NextRequest) {
         error: "AI generated an invalid plan",
         details: validation.errors,
       }, { status: 422 });
+    }
+
+    const planSafety = checkPlanSafety(plan);
+    if (!planSafety.allowed) {
+      return NextResponse.json({ error: planSafety.reason }, { status: 422 });
     }
 
     const sanitized = sanitizePlan(plan);

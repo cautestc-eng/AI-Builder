@@ -118,6 +118,20 @@ export function validatePlan(plan: unknown): ValidationResult {
     }
   }
 
+  if (p.nsfw_channels !== undefined) {
+    if (!Array.isArray(p.nsfw_channels)) {
+      result.errors.push("nsfw_channels must be an array");
+      result.valid = false;
+    } else {
+      for (const ch of p.nsfw_channels) {
+        if (typeof ch !== "string") {
+          result.errors.push("nsfw_channels must contain only strings");
+          result.valid = false;
+        }
+      }
+    }
+  }
+
   return result;
 }
 
@@ -132,6 +146,7 @@ export function sanitizePlan(plan: ServerPlan): ServerPlan {
       text: plan.channels.text.map((c) => c.trim()).filter(Boolean),
       voice: plan.channels.voice.map((c) => c.trim()).filter(Boolean),
     },
+    nsfw_channels: (plan.nsfw_channels || []).map((c) => c.trim()).filter(Boolean),
     category_structure: plan.category_structure.map((c) => ({
       name: c.name.trim(),
       channels: c.channels.map((ch) => ch.trim()).filter(Boolean),

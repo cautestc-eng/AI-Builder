@@ -21,6 +21,7 @@ export interface ServerPlan {
     text: string[];
     voice: string[];
   };
+  nsfw_channels?: string[];
   category_structure: ServerCategory[];
 }
 

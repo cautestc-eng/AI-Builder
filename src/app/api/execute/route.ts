@@ -3,6 +3,7 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { validatePlan, sanitizePlan } from "@/lib/discord/validate";
 import { executePlan } from "@/lib/discord/executor";
 import { verifyRequest, stripIdentityFields } from "@/lib/auth";
+import { checkPlanSafety } from "@/lib/safety";
 
 export const maxDuration = 300;
 
@@ -31,6 +32,11 @@ export async function POST(req: NextRequest) {
         error: "Invalid plan",
         details: validation.errors,
       }, { status: 422 });
+    }
+
+    const planSafety = checkPlanSafety(plan_json);
+    if (!planSafety.allowed) {
+      return NextResponse.json({ error: planSafety.reason }, { status: 422 });
     }
 
     const sanitized = sanitizePlan(plan_json);
