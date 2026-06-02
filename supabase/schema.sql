@@ -45,3 +45,33 @@ CREATE INDEX IF NOT EXISTS idx_guilds_owner ON guilds(owner_id);
 CREATE INDEX IF NOT EXISTS idx_versions_guild ON server_versions(guild_id);
 CREATE INDEX IF NOT EXISTS idx_executions_guild ON executions(guild_id);
 CREATE INDEX IF NOT EXISTS idx_executions_status ON executions(status);
+
+-- Sessions table (server-side auth sessions)
+CREATE TABLE IF NOT EXISTS sessions (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id TEXT NOT NULL REFERENCES users(id),
+  discord_access_token TEXT NOT NULL,
+  created_at TIMESTAMPTZ DEFAULT NOW(),
+  expires_at TIMESTAMPTZ NOT NULL,
+  last_used_at TIMESTAMPTZ DEFAULT NOW(),
+  ip_address TEXT,
+  revoked BOOLEAN DEFAULT FALSE
+);
+
+CREATE INDEX IF NOT EXISTS idx_sessions_user ON sessions(user_id);
+CREATE INDEX IF NOT EXISTS idx_sessions_expires ON sessions(expires_at);
+
+-- Security audit log
+CREATE TABLE IF NOT EXISTS security_logs (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  timestamp TIMESTAMPTZ DEFAULT NOW(),
+  event_type TEXT NOT NULL,
+  user_id TEXT,
+  ip_address TEXT,
+  user_agent TEXT,
+  details JSONB DEFAULT '{}'::jsonb
+);
+
+CREATE INDEX IF NOT EXISTS idx_security_logs_event ON security_logs(event_type);
+CREATE INDEX IF NOT EXISTS idx_security_logs_user ON security_logs(user_id);
+CREATE INDEX IF NOT EXISTS idx_security_logs_ts ON security_logs(timestamp);

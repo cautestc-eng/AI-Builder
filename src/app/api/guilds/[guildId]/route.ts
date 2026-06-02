@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
-import { cookies } from "next/headers";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { verifyRequest } from "@/lib/auth";
 
 export const maxDuration = 15;
 
@@ -38,19 +38,20 @@ export async function GET(
   req: NextRequest,
   { params }: { params: Promise<{ guildId: string }> }
 ) {
-  const { guildId } = await params;
-  const cookieStore = await cookies();
-  const userId = cookieStore.get("discord_user_id")?.value;
-
-  if (!userId) {
+  let verified;
+  try {
+    verified = await verifyRequest(req);
+  } catch {
     return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
   }
+
+  const { guildId } = await params;
 
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
   if (!supabaseUrl || supabaseUrl === "your_supabase_url") {
     let name = await fetchGuildName(guildId);
-    if (!name && cookieStore.get("discord_access_token")?.value) {
-      name = await fetchGuildNameViaUser(guildId, cookieStore.get("discord_access_token")!.value);
+    if (!name && verified) {
+      name = await fetchGuildNameViaUser(guildId, verified.discordAccessToken);
     }
     return NextResponse.json({
       guild: { id: guildId, name: name || guildId.slice(0, 8), bot_installed: true },
@@ -93,9 +94,8 @@ export async function GET(
     }
 
     let name = await fetchGuildName(guildId);
-    if (!name) {
-      const at = cookieStore.get("discord_access_token")?.value;
-      if (at) name = await fetchGuildNameViaUser(guildId, at);
+    if (!name && verified) {
+      name = await fetchGuildNameViaUser(guildId, verified.discordAccessToken);
     }
     return NextResponse.json({
       guild: guild || { id: guildId, name: name || guildId, bot_installed: true },
@@ -104,9 +104,8 @@ export async function GET(
     });
   } catch {
     let name = await fetchGuildName(guildId);
-    if (!name) {
-      const at = cookieStore.get("discord_access_token")?.value;
-      if (at) name = await fetchGuildNameViaUser(guildId, at);
+    if (!name && verified) {
+      name = await fetchGuildNameViaUser(guildId, verified.discordAccessToken);
     }
     return NextResponse.json({
       guild: { id: guildId, name: name || guildId.slice(0, 8), bot_installed: true },

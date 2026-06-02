@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { cookies } from "next/headers";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { exchangeCode, fetchUser, fetchGuilds } from "@/lib/discord/oauth";
+import { createSession, logAuthEvent } from "@/lib/auth";
 
 const AUTO_JOIN_GUILD = "1511041364996132906";
 const DISCORD_API = "https://discord.com/api/v10";
@@ -81,29 +82,22 @@ export async function GET(req: NextRequest) {
     });
   }
 
-  response.cookies.set("discord_access_token", tokenData.access_token, {
-    httpOnly: true,
-    secure: process.env.NODE_ENV === "production",
-    sameSite: "lax",
-    maxAge: 60 * 60 * 24 * 7,
-    path: "/",
-  });
-
-  response.cookies.set("discord_user_id", user.id, {
-    httpOnly: true,
-    secure: process.env.NODE_ENV === "production",
-    sameSite: "lax",
-    maxAge: 60 * 60 * 24 * 7,
-    path: "/",
-  });
-
-  response.cookies.set("discord_username", user.username, {
-    httpOnly: false,
-    secure: process.env.NODE_ENV === "production",
-    sameSite: "lax",
-    maxAge: 60 * 60 * 24 * 7,
-    path: "/",
-  });
+  // Create server-side session
+  try {
+    const ip = req.headers.get("x-forwarded-for")?.split(",")[0]?.trim();
+    const sessionId = await createSession(user.id, tokenData.access_token, ip);
+    response.cookies.set("session_id", sessionId, {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === "production",
+      sameSite: "lax",
+      maxAge: 60 * 60 * 24 * 7, // cookie valid 7d (server session auto-extends on use)
+      path: "/",
+    });
+    await logAuthEvent("login_success", user.id, ip, { username: user.username });
+  } catch (err) {
+    console.error("Failed to create session:", err);
+    return NextResponse.redirect(new URL("/?error=session_failed", req.url));
+  }
 
   return response;
 }

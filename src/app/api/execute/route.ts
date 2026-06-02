@@ -1,21 +1,24 @@
 import { NextRequest, NextResponse } from "next/server";
-import { cookies } from "next/headers";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { validatePlan, sanitizePlan } from "@/lib/discord/validate";
 import { executePlan } from "@/lib/discord/executor";
+import { verifyRequest, stripIdentityFields } from "@/lib/auth";
 
 export const maxDuration = 300;
 
 export async function POST(req: NextRequest) {
-  const cookieStore = await cookies();
-  const userId = cookieStore.get("discord_user_id")?.value;
-
-  if (!userId) {
+  let verified;
+  try {
+    verified = await verifyRequest(req);
+  } catch {
     return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
   }
 
+  const { user } = verified;
+
   try {
-    const body = await req.json();
+    const rawBody = await req.json();
+    const body = stripIdentityFields(rawBody) as any;
     const { guild_id, plan_json, version_id } = body;
 
     if (!guild_id || !plan_json) {
@@ -36,7 +39,7 @@ export async function POST(req: NextRequest) {
     await supabase.from("guilds").upsert({
       id: guild_id,
       name: guild_id,
-      owner_id: userId,
+      owner_id: user.id,
       bot_installed: true,
     }, { onConflict: "id" }).maybeSingle();
 
@@ -68,7 +71,7 @@ export async function POST(req: NextRequest) {
     if (result.success) {
       await supabase.from("server_versions").insert({
         guild_id,
-        created_by: userId,
+        created_by: user.id,
         plan_json: sanitized,
         version_name: `v${Date.now()}`,
         execution_log: result.logs,

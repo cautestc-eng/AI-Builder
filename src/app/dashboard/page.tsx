@@ -15,14 +15,12 @@ export default function DashboardPage() {
   const [username, setUsername] = useState("");
 
   useEffect(() => {
-    const cookieUsername = document.cookie
-      .split("; ")
-      .find((r) => r.startsWith("discord_username="))
-      ?.split("=")[1];
-
-    if (cookieUsername) {
-      setUsername(decodeURIComponent(cookieUsername));
-    }
+    fetch("/api/auth/session")
+      .then((r) => r.json())
+      .then((data) => {
+        if (data.user) setUsername(data.user.username);
+      })
+      .catch(() => {});
 
     fetch("/api/guilds")
       .then((r) => r.json())
@@ -33,10 +31,8 @@ export default function DashboardPage() {
       .catch(() => setLoading(false));
   }, []);
 
-  const handleLogout = () => {
-    document.cookie.split(";").forEach((c) => {
-      document.cookie = c.replace(/^ +/, "").replace(/=.*/, "=;expires=" + new Date().toUTCString() + ";path=/");
-    });
+  const handleLogout = async () => {
+    await fetch("/api/auth/session", { method: "DELETE" });
     router.push("/");
   };
 

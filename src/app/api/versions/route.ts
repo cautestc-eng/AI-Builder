@@ -1,18 +1,21 @@
 import { NextRequest, NextResponse } from "next/server";
-import { cookies } from "next/headers";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { validatePlan } from "@/lib/discord/validate";
+import { verifyRequest, stripIdentityFields } from "@/lib/auth";
 
 export async function POST(req: NextRequest) {
-  const cookieStore = await cookies();
-  const userId = cookieStore.get("discord_user_id")?.value;
-
-  if (!userId) {
+  let verified;
+  try {
+    verified = await verifyRequest(req);
+  } catch {
     return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
   }
 
+  const { user } = verified;
+
   try {
-    const body = await req.json();
+    const rawBody = await req.json();
+    const body = stripIdentityFields(rawBody) as any;
     const { guild_id, plan_json, version_name } = body;
 
     if (!guild_id || !plan_json) {
@@ -30,7 +33,7 @@ export async function POST(req: NextRequest) {
       .from("server_versions")
       .insert({
         guild_id,
-        created_by: userId,
+        created_by: user.id,
         plan_json,
         version_name: version_name || `v${Date.now()}`,
         execution_log: [],
@@ -51,10 +54,10 @@ export async function POST(req: NextRequest) {
 }
 
 export async function GET(req: NextRequest) {
-  const cookieStore = await cookies();
-  const userId = cookieStore.get("discord_user_id")?.value;
-
-  if (!userId) {
+  let verified;
+  try {
+    verified = await verifyRequest(req);
+  } catch {
     return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
   }
 

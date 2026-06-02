@@ -1,19 +1,19 @@
 import { NextRequest, NextResponse } from "next/server";
-import { cookies } from "next/headers";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { verifyRequest } from "@/lib/auth";
 
 export async function GET(
   req: NextRequest,
   { params }: { params: Promise<{ versionId: string }> }
 ) {
-  const { versionId } = await params;
-  const cookieStore = await cookies();
-  const userId = cookieStore.get("discord_user_id")?.value;
-
-  if (!userId) {
+  let verified;
+  try {
+    verified = await verifyRequest(req);
+  } catch {
     return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
   }
 
+  const { versionId } = await params;
   const supabase = createAdminClient();
 
   const { data: version, error } = await supabase
@@ -33,14 +33,14 @@ export async function DELETE(
   req: NextRequest,
   { params }: { params: Promise<{ versionId: string }> }
 ) {
-  const { versionId } = await params;
-  const cookieStore = await cookies();
-  const userId = cookieStore.get("discord_user_id")?.value;
-
-  if (!userId) {
+  let verified;
+  try {
+    verified = await verifyRequest(req);
+  } catch {
     return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
   }
 
+  const { versionId } = await params;
   const supabase = createAdminClient();
 
   const { error } = await supabase
