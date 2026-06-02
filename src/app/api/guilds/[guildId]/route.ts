@@ -6,8 +6,28 @@ export const maxDuration = 15;
 
 const DISCORD_API = "https://discord.com/api/v10";
 
-async function fetchGuildName(guildId: string): Promise<string | null> {
+function getBotToken(): string | null {
   const token = process.env.DISCORD_BOT_TOKEN;
+  if (!token || token === "your_discord_bot_token" || token === "dummy_bot_token") return null;
+  return token;
+}
+
+async function checkBotInGuild(guildId: string): Promise<boolean> {
+  const token = getBotToken();
+  if (!token) return false;
+  try {
+    const res = await fetch(`${DISCORD_API}/guilds/${guildId}`, {
+      headers: { Authorization: `Bot ${token}` },
+      signal: AbortSignal.timeout(4000),
+    });
+    return res.ok;
+  } catch {
+    return false;
+  }
+}
+
+async function fetchGuildName(guildId: string): Promise<string | null> {
+  const token = getBotToken();
   if (!token) return null;
   try {
     const res = await fetch(`${DISCORD_API}/guilds/${guildId}`, {
@@ -47,6 +67,8 @@ export async function GET(
 
   const { guildId } = await params;
 
+  const botInstalled = await checkBotInGuild(guildId);
+
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
   if (!supabaseUrl || supabaseUrl === "your_supabase_url") {
     let name = await fetchGuildName(guildId);
@@ -54,7 +76,7 @@ export async function GET(
       name = await fetchGuildNameViaUser(guildId, verified.discordAccessToken);
     }
     return NextResponse.json({
-      guild: { id: guildId, name: name || guildId.slice(0, 8), bot_installed: true },
+      guild: { id: guildId, name: name || guildId.slice(0, 8), bot_installed: botInstalled },
       versions: [],
       executions: [],
     });
@@ -87,7 +109,7 @@ export async function GET(
 
     if (guild && guild.name) {
       return NextResponse.json({
-        guild,
+        guild: { ...guild, bot_installed: botInstalled },
         versions: versions || [],
         executions: executions || [],
       });
@@ -98,7 +120,7 @@ export async function GET(
       name = await fetchGuildNameViaUser(guildId, verified.discordAccessToken);
     }
     return NextResponse.json({
-      guild: guild || { id: guildId, name: name || guildId, bot_installed: true },
+      guild: guild || { id: guildId, name: name || guildId, bot_installed: botInstalled },
       versions: versions || [],
       executions: executions || [],
     });
@@ -108,7 +130,7 @@ export async function GET(
       name = await fetchGuildNameViaUser(guildId, verified.discordAccessToken);
     }
     return NextResponse.json({
-      guild: { id: guildId, name: name || guildId.slice(0, 8), bot_installed: true },
+      guild: { id: guildId, name: name || guildId.slice(0, 8), bot_installed: botInstalled },
       versions: [],
       executions: [],
     });
