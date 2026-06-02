@@ -52,7 +52,6 @@ export default function GuildDashboard() {
   const [showConfirm, setShowConfirm] = useState(false);
   const [editing, setEditing] = useState(false);
   const [botMissing, setBotMissing] = useState(false);
-  const [showInviteDialog, setShowInviteDialog] = useState(false);
   const [warnings, setWarnings] = useState<string[]>([]);
   const [pageLoading, setPageLoading] = useState(true);
   const logEndRef = useRef<HTMLDivElement>(null);
@@ -113,7 +112,6 @@ export default function GuildDashboard() {
           setGuild(data.guild);
           if (!data.guild.bot_installed) {
             setBotMissing(true);
-            setTimeout(() => setShowInviteDialog(true), 500);
           }
         }
         setVersions(data.versions || []);
@@ -137,17 +135,16 @@ export default function GuildDashboard() {
 
   function startPolling() {
     setPollingStatus("polling");
-    setShowInviteDialog(true);
     if (pollRef.current) clearInterval(pollRef.current);
-    pollRef.current = setInterval(async () => {
+    const id = setInterval(async () => {
       try {
         const res = await fetch(`/api/bot/guild-check?guildId=${guildId}`);
         const data = await res.json();
-        if (data.installed) {
+        if (data.installed && pollRef.current === id) {
           setPollingStatus("detected");
-          if (pollRef.current) clearInterval(pollRef.current);
+          clearInterval(id);
+          pollRef.current = null;
           setTimeout(() => {
-            setShowInviteDialog(false);
             setBotMissing(false);
             setPageLoading(true);
             fetch(`/api/guilds/${guildId}`)
@@ -161,6 +158,7 @@ export default function GuildDashboard() {
         }
       } catch {}
     }, 5000);
+    pollRef.current = id;
   }
 
   useEffect(() => {
@@ -513,7 +511,7 @@ export default function GuildDashboard() {
                 <p className="text-[10px] text-zinc-500 mb-2">Invite the bot to apply changes</p>
                 <Button
                   size="sm"
-                  onClick={() => setShowInviteDialog(true)}
+                  onClick={startPolling}
                   className="bg-amber-600 hover:bg-amber-700 text-white text-[10px] h-7"
                 >Invite Bot</Button>
               </div>
@@ -699,68 +697,53 @@ export default function GuildDashboard() {
         </DialogContent>
       </Dialog>
 
-      <Dialog open={showInviteDialog} onOpenChange={(open) => { if (!open && pollingStatus !== "polling") setShowInviteDialog(false); }}>
-        <DialogContent className="bg-zinc-950 border-zinc-800">
-          <DialogHeader>
-            <DialogTitle className="text-white">Invite Bot to Server</DialogTitle>
-            <DialogDescription className="text-zinc-400">
-              The bot needs to be invited to <strong className="text-white">{guild?.name}</strong> before it can make changes.
-            </DialogDescription>
-          </DialogHeader>
-          <div className="bg-zinc-900 rounded-lg p-4 space-y-2 text-sm">
-            <p className="text-zinc-300 text-sm mb-2">The bot requires these permissions:</p>
-            <ul className="text-xs text-zinc-400 space-y-1 list-disc list-inside">
-              <li>Administrator (recommended)</li>
-              <li>Manage Roles</li>
-              <li>Manage Channels</li>
-              <li>Send Messages</li>
-              <li>View Channels</li>
-            </ul>
-            {pollingStatus === "polling" && (
-              <div className="flex items-center gap-2 mt-3 text-blue-400 text-xs">
-                <div className="animate-spin w-3 h-3 border-2 border-blue-500 border-t-transparent rounded-full" />
-                Checking for bot...
-              </div>
-            )}
-            {pollingStatus === "detected" && (
-              <div className="flex items-center gap-2 mt-3 text-green-400 text-xs">
-                <CheckCircle2 className="w-3 h-3" />
-                Bot detected! Loading server...
-              </div>
-            )}
-          </div>
-          <DialogFooter className="gap-2">
-            {pollingStatus !== "polling" && (
-              <Button variant="ghost" onClick={() => setShowInviteDialog(false)} className="text-zinc-400">
-                Cancel
-              </Button>
-            )}
-            <a href={inviteBotUrl} target="_blank" rel="noopener noreferrer" onClick={startPolling}>
-              <Button className="bg-blue-600 hover:bg-blue-700 text-white">
-                {pollingStatus === "polling" ? "Re-open Discord" : "Open Discord Invite"}
-              </Button>
-            </a>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-
       {botMissing && (
         <div className="absolute inset-0 z-50 bg-black/80 flex items-center justify-center">
           <div className="bg-zinc-950 border border-zinc-800 rounded-xl p-8 max-w-md mx-4 text-center space-y-4">
             <Bot className="w-12 h-12 text-amber-400 mx-auto" />
             <h2 className="text-lg font-semibold text-white">Bot Not Installed</h2>
             <p className="text-sm text-zinc-400">
-              The bot needs to be invited to <strong className="text-white">{guild?.name}</strong> before you can manage it.
+              The bot needs to be invited to <strong className="text-white">{guild?.name}</strong> before you can make changes.
             </p>
+
+            {pollingStatus === "idle" && (
+              <div className="bg-zinc-900 rounded-lg p-4 text-left space-y-2">
+                <p className="text-xs text-zinc-300">Required permissions:</p>
+                <ul className="text-xs text-zinc-400 space-y-1 list-disc list-inside">
+                  <li>Administrator (recommended)</li>
+                  <li>Manage Roles</li>
+                  <li>Manage Channels</li>
+                  <li>Send Messages</li>
+                  <li>View Channels</li>
+                </ul>
+              </div>
+            )}
+
             {pollingStatus === "polling" && (
               <div className="flex items-center justify-center gap-2 text-blue-400 text-sm">
                 <div className="animate-spin w-4 h-4 border-2 border-blue-500 border-t-transparent rounded-full" />
                 Waiting for bot invitation...
               </div>
             )}
-            <Button onClick={startPolling} className="bg-amber-600 hover:bg-amber-700 text-white w-full">
-              Invite Bot
-            </Button>
+
+            {pollingStatus === "detected" && (
+              <div className="flex items-center justify-center gap-2 text-green-400 text-sm">
+                <CheckCircle2 className="w-4 h-4" />
+                Bot detected! Loading...
+              </div>
+            )}
+
+            {pollingStatus === "polling" ? (
+              <a href={inviteBotUrl} target="_blank" rel="noopener noreferrer">
+                <Button variant="outline" className="border-blue-500/50 text-blue-400 w-full">
+                  Re-open Discord
+                </Button>
+              </a>
+            ) : (
+              <Button onClick={startPolling} className="bg-amber-600 hover:bg-amber-700 text-white w-full">
+                Invite Bot
+              </Button>
+            )}
           </div>
         </div>
       )}
