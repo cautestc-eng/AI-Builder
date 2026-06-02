@@ -215,6 +215,49 @@ class GroqProvider implements AIProvider {
     this.modelId = MODELS[modelKey as ModelKey]?.id || MODELS["llama-70b"].id;
   }
 
+  private extractFirstJson(raw: string): string {
+    // Try finding JSON in markdown code blocks first
+    const codeBlockMatch = raw.match(/```(?:json)?\s*\n?(\{[\s\S]*?\})\s*\n?```/);
+    if (codeBlockMatch) {
+      try { JSON.parse(codeBlockMatch[1]); return codeBlockMatch[1]; } catch {}
+    }
+
+    // Find first { and track brace depth to extract exactly one complete JSON object
+    let start = raw.indexOf('{');
+    if (start === -1) {
+      const fallback = raw.match(/\{[\s\S]*\}/);
+      return fallback ? fallback[0] : "";
+    }
+
+    let depth = 0;
+    let inString = false;
+    let escape = false;
+    for (let i = start; i < raw.length; i++) {
+      const ch = raw[i];
+      if (escape) { escape = false; continue; }
+      if (ch === '\\' && inString) { escape = true; continue; }
+      if (ch === '"') { inString = !inString; continue; }
+      if (inString) continue;
+      if (ch === '{') depth++;
+      else if (ch === '}') {
+        depth--;
+        if (depth === 0) {
+          const candidate = raw.slice(start, i + 1);
+          try { JSON.parse(candidate); return candidate; } catch {}
+          // Invalid JSON at this brace match, look for another opening brace
+          start = raw.indexOf('{', i + 1);
+          if (start === -1) break;
+          i = start - 1;
+          depth = 0;
+        }
+      }
+    }
+
+    // Fallback: greedy match
+    const fallback = raw.match(/\{[\s\S]*\}/);
+    return fallback ? fallback[0] : "";
+  }
+
   async generate(prompt: string): Promise<ServerPlan> {
     const body = {
       model: this.modelId,
@@ -223,7 +266,7 @@ class GroqProvider implements AIProvider {
         { role: "user", content: `Generate a Discord server for: ${prompt}. Return ONLY the JSON object.` },
       ],
       temperature: 0.1,
-      max_tokens: 1500,
+      max_tokens: 2000,
     };
 
     const res = await fetch(`${GROQ_API_URL}/chat/completions`, {
@@ -242,15 +285,13 @@ class GroqProvider implements AIProvider {
 
     const data = await res.json();
     const content = data.choices?.[0]?.message?.content || "";
-
-    // Try parsing as-is first, then try extracting JSON from backticks or text
-    const jsonMatch = content.match(/\{[\s\S]*\}/);
-    if (!jsonMatch) {
+    const jsonStr = this.extractFirstJson(content);
+    if (!jsonStr) {
       throw new Error(`No JSON in AI response. Raw: ${content.slice(0, 300)}`);
     }
 
     try {
-      const parsed = JSON.parse(jsonMatch[0]);
+      const parsed = JSON.parse(jsonStr);
       return {
         roles: parsed.roles || [],
         channels: {
@@ -260,7 +301,7 @@ class GroqProvider implements AIProvider {
         category_structure: parsed.category_structure || [],
       };
     } catch (e: any) {
-      throw new Error(`Failed to parse AI JSON: ${e.message}. Raw: ${jsonMatch[0].slice(0, 200)}`);
+      throw new Error(`Failed to parse AI JSON: ${e.message}. Raw: ${jsonStr.slice(0, 200)}`);
     }
   }
 
@@ -272,7 +313,7 @@ class GroqProvider implements AIProvider {
         ...messages,
       ],
       temperature: 0.1,
-      max_tokens: 1500,
+      max_tokens: 2000,
     };
 
     const res = await fetch(`${GROQ_API_URL}/chat/completions`, {
@@ -291,13 +332,12 @@ class GroqProvider implements AIProvider {
 
     const data = await res.json();
     const content = data.choices?.[0]?.message?.content || "";
-
-    const jsonMatch = content.match(/\{[\s\S]*\}/);
-    if (!jsonMatch) {
+    const jsonStr = this.extractFirstJson(content);
+    if (!jsonStr) {
       throw new Error(`No JSON in AI response. Raw: ${content.slice(0, 300)}`);
     }
 
-    const parsed = JSON.parse(jsonMatch[0]);
+    const parsed = JSON.parse(jsonStr);
 
     if (parsed.type === "clarify" && Array.isArray(parsed.questions)) {
       return { type: "clarify", questions: parsed.questions };
