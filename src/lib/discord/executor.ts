@@ -1,11 +1,9 @@
 import { ServerPlan, LogEntry } from "@/types";
-import { ALLOWED_PERMISSIONS } from "./validate";
 
 const DISCORD_API = "https://discord.com/api/v10";
-const BOT_TOKEN = () => process.env.DISCORD_BOT_TOKEN;
 
 const headers = () => ({
-  Authorization: `Bot ${BOT_TOKEN()}`,
+  Authorization: `Bot ${process.env.DISCORD_BOT_TOKEN}`,
   "Content-Type": "application/json",
 });
 
@@ -58,7 +56,7 @@ function resolvePermissions(perms: string[]): string {
   return bitwise.toString();
 }
 
-async function discordFetch(path: string, options: RequestInit = {}, timeoutMs = 5000) {
+async function discordFetch(path: string, options: RequestInit = {}, timeoutMs = 8000) {
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), timeoutMs);
   try {
@@ -81,10 +79,16 @@ export async function verifyBotInGuild(guildId: string): Promise<boolean> {
   try {
     await discordFetch(`/guilds/${guildId}`, {}, 3000);
     return true;
-  } catch {
-    return false;
-  }
+  } catch { return false; }
 }
+
+function rolePriority(role: { name: string; permissions: string[] }): number {
+  if (role.permissions.includes("ADMINISTRATOR")) return 0;
+  if (role.permissions.some(p => ["MANAGE_MESSAGES", "KICK_MEMBERS", "BAN_MEMBERS", "MANAGE_ROLES", "MANAGE_CHANNELS", "MODERATE_MEMBERS"].includes(p))) return 1;
+  return 2;
+}
+
+const MANAGED_ROLE_NAMES = new Set(["@everyone", "DiscordBot", "Bot", "MEE6", "Dyno", "Carl-bot", "TicketTool"]);
 
 export async function executePlan(
   guildId: string,
@@ -96,33 +100,99 @@ export async function executePlan(
     const existingRoles: any[] = await discordFetch(`/guilds/${guildId}/roles`);
     const existingChannels: any[] = await discordFetch(`/guilds/${guildId}/channels`);
 
-    const roleMap = new Map(existingRoles.map((r: any) => [r.name, r]));
-    const channelMap = new Map(existingChannels.map((c: any) => [c.name, c]));
+    const planRoleNames = new Set(plan.roles.map(r => r.name));
+    const planChannelNames = new Set([
+      ...plan.channels.text,
+      ...plan.channels.voice,
+      ...plan.category_structure.map(c => c.name),
+    ]);
 
-    for (const role of plan.roles) {
-      if (roleMap.has(role.name)) {
-        logs.push(makeLog("sync", `Role already exists: ${role.name}`));
+    // --- ROLES ---
+    // Create roles in priority order (Admin first, then Mod, then Members)
+    const sortedRoles = [...plan.roles].sort((a, b) => rolePriority(a) - rolePriority(b));
+    const createdRoleIds: { name: string; id: string }[] = [];
+
+    for (const role of sortedRoles) {
+      if (role.name === "@everyone") continue;
+      const existing = existingRoles.find((r: any) => r.name === role.name);
+      if (existing) {
+        // Update existing role's permissions and color
+        try {
+          await discordFetch(`/guilds/${guildId}/roles/${existing.id}`, {
+            method: "PATCH",
+            body: JSON.stringify({
+              permissions: resolvePermissions(role.permissions),
+              color: role.color ? parseInt(role.color.replace("#", ""), 16) : 0,
+            }),
+          });
+          logs.push(makeLog("ok", `Updated role: ${role.name}`));
+        } catch (err: any) {
+          logs.push(makeLog("error", `Failed to update role ${role.name}: ${err.message}`));
+        }
+        createdRoleIds.push({ name: role.name, id: existing.id });
         continue;
       }
       try {
-        await discordFetch(`/guilds/${guildId}/roles`, {
+        const newRole: any = await discordFetch(`/guilds/${guildId}/roles`, {
           method: "POST",
           body: JSON.stringify({
             name: role.name,
             permissions: resolvePermissions(role.permissions),
-            color: role.color ? parseInt(role.color.replace("#", ""), 16) : undefined,
+            color: role.color ? parseInt(role.color.replace("#", ""), 16) : 0,
           }),
         });
-        logs.push(makeLog("ok", `Creating role: ${role.name}`));
+        createdRoleIds.push({ name: role.name, id: newRole.id });
+        logs.push(makeLog("ok", `Created role: ${role.name}`));
       } catch (err: any) {
         logs.push(makeLog("error", `Failed to create role ${role.name}: ${err.message}`));
       }
     }
 
+    // Delete roles not in plan (skip @everyone, managed, bot roles)
+    for (const existing of existingRoles) {
+      if (existing.name === "@everyone") continue;
+      if (existing.managed) continue;
+      if (MANAGED_ROLE_NAMES.has(existing.name)) continue;
+      if (!planRoleNames.has(existing.name)) {
+        try {
+          await discordFetch(`/guilds/${guildId}/roles/${existing.id}`, { method: "DELETE" });
+          logs.push(makeLog("ok", `Deleted role: ${existing.name}`));
+        } catch (err: any) {
+          logs.push(makeLog("error", `Failed to delete role ${existing.name}: ${err.message}`));
+        }
+      }
+    }
+
+    // Reorder roles so highest permission roles are at top (position 1 is highest non-@everyone)
+    if (createdRoleIds.length > 0) {
+      try {
+        // Sort created roles by priority (Admin first = highest position)
+        createdRoleIds.sort((a, b) => {
+          const ra = plan.roles.find(r => r.name === a.name);
+          const rb = plan.roles.find(r => r.name === b.name);
+          return (rolePriority(ra || { name: "", permissions: [] }) - rolePriority(rb || { name: "", permissions: [] }));
+        });
+        // Build position array: reverse so highest priority gets highest position value
+        const positionBody = createdRoleIds.map((r, i) => ({
+          id: r.id,
+          position: createdRoleIds.length - i,
+        }));
+        await discordFetch(`/guilds/${guildId}/roles`, {
+          method: "PATCH",
+          body: JSON.stringify(positionBody),
+        });
+        logs.push(makeLog("sync", "Reordered roles by priority"));
+      } catch (err: any) {
+        logs.push(makeLog("error", `Failed to reorder roles: ${err.message}`));
+      }
+    }
+
+    // --- CATEGORIES ---
     const createdCategories = new Map<string, string>();
+
     for (const cat of plan.category_structure) {
-      const existing = channelMap.get(cat.name);
-      if (existing && existing.type === 4) {
+      const existing = existingChannels.find((c: any) => c.name === cat.name && c.type === 4);
+      if (existing) {
         createdCategories.set(cat.name, existing.id);
         logs.push(makeLog("sync", `Category exists: ${cat.name}`));
         continue;
@@ -133,14 +203,25 @@ export async function executePlan(
           body: JSON.stringify({ name: cat.name, type: 4 }),
         });
         createdCategories.set(cat.name, newCat.id);
-        logs.push(makeLog("ok", `Creating category: ${cat.name}`));
+        logs.push(makeLog("ok", `Created category: ${cat.name}`));
       } catch (err: any) {
         logs.push(makeLog("error", `Failed to create category ${cat.name}: ${err.message}`));
       }
     }
 
+    // --- TEXT CHANNELS ---
     for (const chName of plan.channels.text) {
-      if (channelMap.has(chName)) {
+      const existing = existingChannels.find((c: any) => c.name === chName && c.type === 0);
+      if (existing) {
+        // Update NSFW flag
+        if (plan.nsfw_channels?.includes(chName) !== existing.nsfw) {
+          try {
+            await discordFetch(`/guilds/${guildId}/channels/${existing.id}`, {
+              method: "PATCH",
+              body: JSON.stringify({ nsfw: plan.nsfw_channels?.includes(chName) || false }),
+            });
+          } catch {}
+        }
         logs.push(makeLog("sync", `Text channel exists: #${chName}`));
         continue;
       }
@@ -153,14 +234,16 @@ export async function executePlan(
           method: "POST",
           body: JSON.stringify(body),
         });
-        logs.push(makeLog("ok", `Creating channel: #${chName}`));
+        logs.push(makeLog("ok", `Created channel: #${chName}`));
       } catch (err: any) {
         logs.push(makeLog("error", `Failed to create channel #${chName}: ${err.message}`));
       }
     }
 
+    // --- VOICE CHANNELS ---
     for (const chName of plan.channels.voice) {
-      if (channelMap.has(chName)) {
+      const existing = existingChannels.find((c: any) => c.name === chName && c.type === 2);
+      if (existing) {
         logs.push(makeLog("sync", `Voice channel exists: ${chName}`));
         continue;
       }
@@ -172,13 +255,34 @@ export async function executePlan(
           method: "POST",
           body: JSON.stringify(body),
         });
-        logs.push(makeLog("ok", `Creating voice channel: ${chName}`));
+        logs.push(makeLog("ok", `Created voice channel: ${chName}`));
       } catch (err: any) {
         logs.push(makeLog("error", `Failed to create voice channel ${chName}: ${err.message}`));
       }
     }
 
-    logs.push(makeLog("sync", "Syncing guild state"));
+    // --- DELETE CHANNELS NOT IN PLAN ---
+    const systemChannelIds = new Set<string>();
+    try {
+      const guild: any = await discordFetch(`/guilds/${guildId}`);
+      if (guild.system_channel_id) systemChannelIds.add(guild.system_channel_id);
+      if (guild.rules_channel_id) systemChannelIds.add(guild.rules_channel_id);
+      if (guild.public_updates_channel_id) systemChannelIds.add(guild.public_updates_channel_id);
+    } catch {}
+
+    for (const existing of existingChannels) {
+      if (systemChannelIds.has(existing.id)) continue;
+      if (existing.managed) continue; // bot-managed channel
+      if (!planChannelNames.has(existing.name)) {
+        try {
+          await discordFetch(`/guilds/${guildId}/channels/${existing.id}`, { method: "DELETE" });
+          logs.push(makeLog("ok", `Deleted channel: #${existing.name}`));
+        } catch (err: any) {
+          logs.push(makeLog("error", `Failed to delete channel #${existing.name}: ${err.message}`));
+        }
+      }
+    }
+
     logs.push(makeLog("done", "Server structure applied successfully"));
     return { success: true, logs };
   } catch (err: any) {
@@ -193,9 +297,7 @@ function findCategoryId(
   categoryMap: Map<string, string>
 ): string | undefined {
   for (const cat of categories) {
-    if (cat.channels.includes(channelName)) {
-      return categoryMap.get(cat.name);
-    }
+    if (cat.channels.includes(channelName)) return categoryMap.get(cat.name);
   }
   return undefined;
 }
