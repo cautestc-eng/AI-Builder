@@ -235,6 +235,7 @@ Step 4: Did the user say something truly empty like "idk", "not sure", "I don't 
 - @everyone gets basic perms only: VIEW_CHANNEL, SEND_MESSAGES, ADD_REACTIONS, READ_MESSAGE_HISTORY, CONNECT, SPEAK
 - Normal range: 2-8 roles, 2-10 text channels, 1-5 voice channels. BUT these are soft guidelines — follow the user's explicit request. If user asks for 0 channels, output [].
 - Every channel belongs to exactly one category
+- CRITICAL: The "channels" array inside each category entry MUST reference channel names that exist in channels.text or channels.voice. A channel must appear in BOTH its category AND the top-level text/voice array.
 - Never duplicate channel names across categories
 - nsfw_channels is an array of text channel names that are age-restricted. Use "nsfw-" prefix for NSFW channels.
 - Include nsfw_channels in every output. Use empty array [] if no NSFW channels.
