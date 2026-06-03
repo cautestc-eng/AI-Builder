@@ -22,6 +22,11 @@ const DANGEROUS_PERMISSIONS = new Set([
   "MANAGE_GUILD", "MANAGE_ROLES", "MANAGE_WEBHOOKS",
 ]);
 
+const MAX_ROLES = 25;
+const MAX_TEXT_CHANNELS = 30;
+const MAX_VOICE_CHANNELS = 15;
+const MAX_TOTAL_CHANNELS = 40;
+
 interface ValidationResult {
   valid: boolean;
   errors: string[];
@@ -43,6 +48,10 @@ export function validatePlan(plan: unknown): ValidationResult {
     result.errors.push("roles must be an array");
     result.valid = false;
   } else {
+    if (p.roles.length > MAX_ROLES) {
+      result.errors.push(`Too many roles (${p.roles.length} > ${MAX_ROLES})`);
+      result.valid = false;
+    }
     for (let i = 0; i < p.roles.length; i++) {
       const role = p.roles[i] as Record<string, unknown>;
       const roleName = role.name;
@@ -79,6 +88,10 @@ export function validatePlan(plan: unknown): ValidationResult {
       result.errors.push("channels.text must be an array");
       result.valid = false;
     } else {
+      if (channels.text.length > MAX_TEXT_CHANNELS) {
+        result.errors.push(`Too many text channels (${channels.text.length} > ${MAX_TEXT_CHANNELS})`);
+        result.valid = false;
+      }
       for (const ch of channels.text) {
         if (typeof ch !== "string" || ch.length > 100) {
           result.errors.push(`Invalid text channel name: "${ch}"`);
@@ -90,12 +103,22 @@ export function validatePlan(plan: unknown): ValidationResult {
       result.errors.push("channels.voice must be an array");
       result.valid = false;
     } else {
+      if (channels.voice.length > MAX_VOICE_CHANNELS) {
+        result.errors.push(`Too many voice channels (${channels.voice.length} > ${MAX_VOICE_CHANNELS})`);
+        result.valid = false;
+      }
       for (const ch of channels.voice) {
         if (typeof ch !== "string" || ch.length > 100) {
           result.errors.push(`Invalid voice channel name: "${ch}"`);
           result.valid = false;
         }
       }
+    }
+    const totalChannels = (Array.isArray(channels.text) ? channels.text.length : 0) +
+      (Array.isArray(channels.voice) ? channels.voice.length : 0);
+    if (totalChannels > MAX_TOTAL_CHANNELS) {
+      result.errors.push(`Too many total channels (${totalChannels} > ${MAX_TOTAL_CHANNELS})`);
+      result.valid = false;
     }
   }
 
