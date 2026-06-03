@@ -244,7 +244,7 @@ export async function executePlan(
         // Update NSFW flag
         if (plan.nsfw_channels?.includes(chName) !== existing.nsfw) {
           try {
-            await discordFetch(`/guilds/${guildId}/channels/${existing.id}`, {
+            await discordFetch(`/channels/${existing.id}`, {
               method: "PATCH",
               body: JSON.stringify({ nsfw: plan.nsfw_channels?.includes(chName) || false }),
             });
@@ -312,7 +312,7 @@ export async function executePlan(
       }
       if (!planChannelNamesLower.has(existing.name.toLowerCase())) {
         try {
-          await discordFetch(`/guilds/${guildId}/channels/${existing.id}`, { method: "DELETE" });
+          await discordFetch(`/channels/${existing.id}`, { method: "DELETE" });
           logs.push(makeLog("ok", `Deleted channel: #${existing.name} (${existing.id})`));
           await new Promise(r => setTimeout(r, 300));
         } catch (err: any) {

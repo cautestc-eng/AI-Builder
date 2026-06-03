@@ -43,12 +43,13 @@ async function fetchGuildName(guildId: string): Promise<string | null> {
 
 async function fetchGuildNameViaUser(guildId: string, accessToken: string): Promise<string | null> {
   try {
-    const res = await fetch(`${DISCORD_API}/guilds/${guildId}`, {
+    const res = await fetch(`${DISCORD_API}/users/@me/guilds`, {
       headers: { Authorization: `Bearer ${accessToken}` },
     });
     if (!res.ok) return null;
-    const data = await res.json();
-    return data.name || null;
+    const guilds: any[] = await res.json();
+    const guild = guilds.find((g: any) => g.id === guildId);
+    return guild?.name || null;
   } catch {
     return null;
   }
