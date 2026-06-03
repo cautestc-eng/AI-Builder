@@ -325,39 +325,8 @@ export default function GuildDashboard() {
     setPlan(version.plan_json);
     setLogs([]);
     setWarnings([]);
-    setExecuting(true);
-    setProgress(10);
-
-    try {
-      addLog("sync", "Reverting to version...");
-      const res = await fetch("/api/execute", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ guild_id: guildId, plan_json: version.plan_json }),
-      });
-
-      const data = await res.json();
-
-      if (data.logs) setLogs(data.logs);
-
-      if (data.success) {
-        setProgress(100);
-        addLog("done", "Reverted to version successfully!");
-        toast.success("Reverted to version!");
-        fetch(`/api/guilds/${guildId}`).then(r => r.json()).then(d => {
-          if (d.versions) setVersions(d.versions);
-        });
-      } else {
-        setProgress(0);
-        addLog("error", data.error || "Revert failed");
-        toast.error(data.error || "Failed to revert");
-      }
-    } catch (err) {
-      addLog("error", "Revert failed");
-      toast.error("Revert failed");
-    } finally {
-      setExecuting(false);
-    }
+    setConversation([]);
+    toast.success("Loaded version as pending plan");
   };
 
   const handleDeleteVersion = async (versionId: string) => {
@@ -535,7 +504,7 @@ export default function GuildDashboard() {
                         <button
                           onClick={(e) => { e.stopPropagation(); handleRestore(v); }}
                           className="w-6 h-6 flex items-center justify-center rounded hover:bg-zinc-800 text-zinc-500 hover:text-blue-400 transition-colors"
-                          title="Reroll"
+                          title="Load plan"
                         >
                           <RotateCcw className="w-3 h-3" />
                         </button>
@@ -681,7 +650,7 @@ export default function GuildDashboard() {
                           <button
                             onClick={(e) => { e.stopPropagation(); handleRestore(v); }}
                             className="w-6 h-6 flex items-center justify-center rounded hover:bg-zinc-800 text-zinc-500 hover:text-blue-400 transition-colors"
-                            title="Reroll"
+                        title="Load plan"
                           >
                             <RotateCcw className="w-3 h-3" />
                           </button>
