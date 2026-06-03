@@ -97,13 +97,21 @@ export async function executePlan(
   const logs: LogEntry[] = [];
 
   try {
+    // Verify bot permissions first
+    const botMember: any = await discordFetch(`/guilds/${guildId}/members/@me`);
+    const botRoles: any[] = await discordFetch(`/guilds/${guildId}/roles`);
+    const botHighestRole = Math.max(...botRoles.filter((r: any) => botMember.roles.includes(r.id)).map((r: any) => r.position), 0);
+    logs.push(makeLog("sync", `Bot highest role position: ${botHighestRole}`));
+
     const existingRoles: any[] = await discordFetch(`/guilds/${guildId}/roles`);
     const existingChannels: any[] = await discordFetch(`/guilds/${guildId}/channels`);
 
     const planRoleNamesLower = new Set(plan.roles.map(r => r.name.toLowerCase()));
+    // Include all channel names from text, voice, category channels, and category names
     const planChannelNamesLower = new Set([
       ...plan.channels.text.map(n => n.toLowerCase()),
       ...plan.channels.voice.map(n => n.toLowerCase()),
+      ...plan.category_structure.flatMap(c => c.channels.map(n => n.toLowerCase())),
       ...plan.category_structure.map(c => c.name.toLowerCase()),
     ]);
 
@@ -261,7 +269,8 @@ export async function executePlan(
       }
     }
 
-    // --- DELETE CHANNELS NOT IN PLAN ---
+    // --- DELETE CHANNELS NOT IN PLAN (re-fetch to get fresh state) ---
+    const freshChannels: any[] = await discordFetch(`/guilds/${guildId}/channels`);
     const systemChannelIds = new Set<string>();
     try {
       const guild: any = await discordFetch(`/guilds/${guildId}`);
