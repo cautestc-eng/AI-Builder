@@ -102,18 +102,22 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "guild_id and plan_json required" }, { status: 400 });
     }
 
-    const cooldown = await checkGuildCooldown(guild_id);
-    if (cooldown !== null) {
-      return NextResponse.json({
-        error: `Please wait ${cooldown}s before executing again on this server`,
-      }, { status: 429 });
-    }
+    const isRevert = !!version_id;
 
-    const dailyLimit = await checkDailyExecuteLimit(user.id);
-    if (!dailyLimit.allowed) {
-      return NextResponse.json({
-        error: `Daily execute limit reached (${DAILY_EXECUTE_LIMIT}/day)`,
-      }, { status: 429 });
+    if (!isRevert) {
+      const cooldown = await checkGuildCooldown(guild_id);
+      if (cooldown !== null) {
+        return NextResponse.json({
+          error: `Please wait ${cooldown}s before executing again on this server`,
+        }, { status: 429 });
+      }
+
+      const dailyLimit = await checkDailyExecuteLimit(user.id);
+      if (!dailyLimit.allowed) {
+        return NextResponse.json({
+          error: `Daily execute limit reached (${DAILY_EXECUTE_LIMIT}/day)`,
+        }, { status: 429 });
+      }
     }
 
     const validation = validatePlan(plan_json);
@@ -165,14 +169,16 @@ export async function POST(req: NextRequest) {
       .eq("id", execution.id);
 
     if (result.success) {
-      await supabase.from("server_versions").insert({
-        guild_id,
-        created_by: user.id,
-        plan_json: sanitized,
-        version_name: `v${Date.now()}`,
-        execution_log: result.logs,
-      });
-      await incrementDailyExecuteLimit(user.id);
+      if (!isRevert) {
+        await supabase.from("server_versions").insert({
+          guild_id,
+          created_by: user.id,
+          plan_json: sanitized,
+          version_name: `v${Date.now()}`,
+          execution_log: result.logs,
+        });
+        await incrementDailyExecuteLimit(user.id);
+      }
     }
 
     return NextResponse.json({
