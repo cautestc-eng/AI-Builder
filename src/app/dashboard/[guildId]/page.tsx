@@ -223,6 +223,13 @@ export default function GuildDashboard() {
     setShowLogs(true);
 
     try {
+      // Auto-save for revert
+      await fetch("/api/versions", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ guild_id: guildId, plan_json: plan, version_name: `Before apply ${new Date().toLocaleString()}` }),
+      }).then(r => r.ok && r.json()).then(d => { if (d?.version) setVersions(prev => [d.version, ...prev]); });
+
       addLog("sync", "Starting execution...");
       const res = await fetch("/api/execute", {
         method: "POST",
@@ -342,6 +349,24 @@ export default function GuildDashboard() {
                   </button>
                 ))}
               </div>
+              {versions.length > 0 && (
+                <div className="mt-8 pt-6 border-t border-zinc-800">
+                  <p className="text-xs text-zinc-500 uppercase tracking-wider mb-3">Saved Plans — click to revert</p>
+                  <div className="flex flex-wrap justify-center gap-2 max-w-xl mx-auto">
+                    {versions.map((v) => (
+                      <button
+                        key={v.id}
+                        onClick={() => handleRestore(v)}
+                        className="px-3 py-2 bg-zinc-900 border border-zinc-800 rounded-lg text-xs text-zinc-400 hover:border-blue-500/50 hover:text-blue-300 transition-colors flex items-center gap-2"
+                      >
+                        <RotateCcw className="w-3 h-3" />
+                        <span className="truncate max-w-[100px]">{v.version_name}</span>
+                        <span className="text-[10px] text-zinc-600">{timeAgo(new Date(v.created_at).getTime())}</span>
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
             </div>
           )}
 

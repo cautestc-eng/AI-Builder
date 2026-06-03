@@ -38,20 +38,25 @@ const SYSTEM_GENERATE = `You are a Discord server structure generator. Return ON
 {"roles":[{"name":"RoleName","permissions":["PERM1","PERM2"],"color":"#hex"}],"channels":{"text":["channel-name"],"voice":["VoiceChannelName"]},"nsfw_channels":["channel-name"],"category_structure":[{"name":"CATEGORY","channels":["channel-name"]}]}
 
 === COMPLETE EXAMPLE ===
-{"roles":[{"name":"@everyone","permissions":["VIEW_CHANNEL","SEND_MESSAGES","ADD_REACTIONS","CONNECT","SPEAK","READ_MESSAGE_HISTORY","USE_VAD"],"color":"#99AAB5"},{"name":"Admin","permissions":["ADMINISTRATOR"],"color":"#FF0000"},{"name":"Moderator","permissions":["MANAGE_MESSAGES","KICK_MEMBERS","BAN_MEMBERS","MUTE_MEMBERS","DEAFEN_MEMBERS","MOVE_MEMBERS","VIEW_AUDIT_LOG"],"color":"#00FF00"},{"name":"Member","permissions":["VIEW_CHANNEL","SEND_MESSAGES","ADD_REACTIONS","EMBED_LINKS","ATTACH_FILES","READ_MESSAGE_HISTORY","CONNECT","SPEAK","USE_VAD"],"color":"#5865F2"}],"channels":{"text":["general","announcements","rules","introductions","support","off-topic"],"voice":["General","Gaming","Music"]},"nsfw_channels":[],"category_structure":[{"name":"INFORMATION","channels":["announcements","rules"]},{"name":"SOCIAL","channels":["general","introductions","off-topic"]},{"name":"VOICE","channels":["General","Gaming","Music"]}]}
+{"roles":[{"name":"@everyone","permissions":["VIEW_CHANNEL","SEND_MESSAGES","ADD_REACTIONS","CONNECT","SPEAK","READ_MESSAGE_HISTORY","USE_VAD"],"color":"#99AAB5"},{"name":"Admin","permissions":["ADMINISTRATOR"],"color":"#FF0000"},{"name":"Moderator","permissions":["MANAGE_MESSAGES","KICK_MEMBERS","BAN_MEMBERS","MUTE_MEMBERS","DEAFEN_MEMBERS","MOVE_MEMBERS","VIEW_AUDIT_LOG"],"color":"#00FF00"},{"name":"Member","permissions":["VIEW_CHANNEL","SEND_MESSAGES","ADD_REACTIONS","EMBED_LINKS","ATTACH_FILES","READ_MESSAGE_HISTORY","CONNECT","SPEAK","USE_VAD"],"color":"#5865F2"}],"channels":{"text":["general","announcements","rules","introductions","support","off-topic"],"voice":["General","Gaming","Music"]},"nsfw_channels":[],"category_structure":[{"name":"Information","channels":["announcements","rules"]},{"name":"Social","channels":["general","introductions","off-topic"]},{"name":"Voice","channels":["General","Gaming","Music"]}]}
 
 === FORMAT RULES (never break these) ===
 - Output must be a single JSON object. No arrays, no strings.
-- No trailing commas. No comments. No single quotes.
+- No trailing commas in arrays or objects. This is the #1 cause of errors. DOUBLE CHECK EVERY COMMA.
+- Every array element except the last MUST have a comma after it.
+- No comma after the last element in an array or object.
+- No comments (// or /* */). No single quotes. No backticks.
 - Every string must use double quotes.
+- Every key must be double-quoted: "roles", "channels", "name", etc. Unquoted keys are invalid.
 - Color values must be 7 characters: # + 6 hex digits (e.g. #5865F2). No 3-char shortcuts.
-- Do NOT include a "type" field in the JSON.
+- Do NOT include a "type" field in plan output. Only clarify output has "type".
 - Do NOT wrap the JSON in any object like {"plan": ...} or {"data": ...}.
 - Every role must have "name", "permissions", and "color" keys.
 - Every channel object must have "text", "voice" arrays. Both must be present.
 - nsfw_channels must be an array of text channel names that should be age-restricted.
 - category_structure must be an array. Each entry must have "name" and "channels".
 - The "channels" array inside each category entry must reference channel names that exist in channels.text or channels.voice.
+- VALID JSON CHECK: Paste your output into a JSON validator before returning. If it does not parse, fix it.
 
 === ROLE RULES ===
 - @everyone must ALWAYS be the first role in the roles array.
@@ -85,7 +90,7 @@ const SYSTEM_GENERATE = `You are a Discord server structure generator. Return ON
 - Voice channels should serve different use cases: general hangout, gaming, music/afk.
 
 === CATEGORY RULES ===
-- Category names are UPPERCASE with underscores (e.g. "INFORMATION", "SOCIAL", "VOICE_CHANNELS", "COMPETITIVE").
+ - Category names are Title Case (e.g. "Information", "Social", "Voice Channels", "Competitive").
 - Every channel (text and voice) must belong to exactly ONE category.
 - A channel cannot appear in more than one category.
 - Each category must have at least one channel.
@@ -110,16 +115,20 @@ VIEW_CHANNEL, SEND_MESSAGES, MANAGE_MESSAGES, MENTION_EVERYONE, ADD_REACTIONS, E
 - Never include markdown, \`\`\` fences, or backticks.
 - Never include explanations, apologies, or extra text before or after JSON.
 - Never wrap in {"plan": ...} or {"data": ...} or any wrapper.
-- Never include "type" field.
+- Never include "type" field in plan output.
 - Never output an array instead of an object.
-- Never use single quotes.
+- Never use single quotes for strings.
 - Never include JavaScript comments (// or /* */).
-- Never include trailing commas in arrays or objects.
+- Never include trailing commas in arrays or objects. THIS IS THE MOST COMMON MISTAKE.
+- Never forget a comma between array elements or object properties. MISSING COMMAS ALSO BREAK JSON.
 - Never generate duplicate role names or channel names.
 - Never leave arrays empty unless unavoidable (e.g. for very small servers).
 - Never give ADMINISTRATOR to @everyone.
 - Never make up permission names not in the list.
 - Never mark voice channels as NSFW. nsfw_channels only applies to text channels.
+- Never use unquoted keys like roles: instead of "roles":.
+- Never add a comma after the last item in an array or object.
+- BEFORE RETURNING: Count your braces. Every { must have a matching }. Every [ must have a matching ].
 
 === CONTENT SAFETY (never break these) ===
 - Never generate channels, roles, or categories that reference: hate speech, racial slurs, white supremacy, nazi ideology, genocide, ethnic cleansing.
@@ -139,7 +148,7 @@ const SYSTEM_CONVERSE = `You are a Discord server architect. You respond ONLY wi
 
 === OUTPUT A: GENERATE PLAN ===
 Use this when you can make a reasonable server structure. This is the DEFAULT choice.
-{"roles":[{"name":"@everyone","permissions":["VIEW_CHANNEL","SEND_MESSAGES","ADD_REACTIONS","READ_MESSAGE_HISTORY","CONNECT","SPEAK"],"color":"#99AAB5"},{"name":"Admin","permissions":["ADMINISTRATOR"],"color":"#FF0000"}],"channels":{"text":["general","announcements"],"voice":["General"]},"nsfw_channels":[],"category_structure":[{"name":"GENERAL","channels":["general","announcements"]}]}
+{"roles":[{"name":"@everyone","permissions":["VIEW_CHANNEL","SEND_MESSAGES","ADD_REACTIONS","READ_MESSAGE_HISTORY","CONNECT","SPEAK"],"color":"#99AAB5"},{"name":"Admin","permissions":["ADMINISTRATOR"],"color":"#FF0000"}],"channels":{"text":["general","announcements"],"voice":["General"]},"nsfw_channels":[],"category_structure":[{"name":"General","channels":["general","announcements"]}]}
 
 === OUTPUT B: ASK CLARIFY QUESTIONS ===
 Use this ONLY when all of these are true: user gave zero specifics (e.g. "make a server" with nothing else), no theme, no purpose, no size, no preferences. This is the RARE exception.
@@ -173,7 +182,7 @@ Step 4: Did the user say something truly empty like "idk", "not sure", "I don't 
 === PLAN RULES ===
 - text channels: lowercase-kebab (e.g. "general", "looking-for-group")
 - voice channels: Title Case (e.g. "General", "Competitive Gaming")
-- categories: UPPERCASE_UNDERSCORES (e.g. "INFORMATION", "VOICE_CHANNELS")
+- categories: Title Case (e.g. "Information", "Voice Channels")
 - Always include @everyone role first
 - @everyone gets basic perms only: VIEW_CHANNEL, SEND_MESSAGES, ADD_REACTIONS, READ_MESSAGE_HISTORY, CONNECT, SPEAK
 - 3-8 roles, 4-10 text channels, 2-5 voice channels
@@ -193,6 +202,12 @@ VIEW_CHANNEL, SEND_MESSAGES, MANAGE_MESSAGES, MENTION_EVERYONE, ADD_REACTIONS, E
 - Never ask about specific channels, roles, or permissions.
 - Never generate duplicate channel names.
 - Never leave @everyone out of the roles array.
+- Never include trailing commas in arrays or objects.
+- Never forget commas between array elements.
+- Never use single quotes. Only double quotes.
+- Never include comments in JSON.
+- Never use unquoted keys.
+- OUTPUT A MUST be valid JSON that passes JSON.parse(). Check every comma and brace.
 
 === CONTENT SAFETY ===
 - Never generate channels, roles, or categories for hate speech, violence, illegal activity, harassment, politics, nuclear weapons, or extremism.
@@ -254,7 +269,7 @@ class GroqProvider implements AIProvider {
     let start = raw.indexOf('{');
     if (start === -1) {
       const fallback = raw.match(/\{[\s\S]*\}/);
-      return fallback ? fallback[0] : "";
+      return fallback ? this.repairJson(fallback[0]) : "";
     }
 
     let depth = 0;
@@ -272,6 +287,9 @@ class GroqProvider implements AIProvider {
         if (depth === 0) {
           const candidate = raw.slice(start, i + 1);
           try { JSON.parse(candidate); return candidate; } catch {}
+          // Try repaired version
+          const repaired = this.repairJson(candidate);
+          try { JSON.parse(repaired); return repaired; } catch {}
           // Invalid JSON at this brace match, look for another opening brace
           start = raw.indexOf('{', i + 1);
           if (start === -1) break;
@@ -283,7 +301,24 @@ class GroqProvider implements AIProvider {
 
     // Fallback: greedy match
     const fallback = raw.match(/\{[\s\S]*\}/);
-    return fallback ? fallback[0] : "";
+    const result = fallback ? fallback[0] : "";
+    return this.repairJson(result);
+  }
+
+  private repairJson(s: string): string {
+    let r = s;
+    // Remove comments
+    r = r.replace(/\/\/.*?(\n|$)/g, "");
+    r = r.replace(/\/\*[\s\S]*?\*\//g, "");
+    // Replace single quotes with double quotes (not inside strings)
+    r = r.replace(/'/g, '"');
+    // Remove trailing commas before } or ]
+    r = r.replace(/,\s*([}\]])/g, "$1");
+    // Remove trailing comma at end of file before EOF
+    r = r.replace(/,\s*$/, "");
+    // Remove backticks
+    r = r.replace(/`/g, "");
+    return r;
   }
 
   async generate(prompt: string): Promise<ServerPlan> {
@@ -293,7 +328,7 @@ class GroqProvider implements AIProvider {
         { role: "system", content: SYSTEM_GENERATE },
         { role: "user", content: `Generate a Discord server for: ${prompt}. Return ONLY the JSON object.` },
       ],
-      temperature: 0.1,
+      temperature: 0,
       max_tokens: 2000,
     };
 
@@ -341,7 +376,7 @@ class GroqProvider implements AIProvider {
         { role: "system", content: SYSTEM_CONVERSE },
         ...messages,
       ],
-      temperature: 0.1,
+      temperature: 0,
       max_tokens: 2000,
     };
 
