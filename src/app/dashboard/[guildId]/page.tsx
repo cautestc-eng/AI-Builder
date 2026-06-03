@@ -15,7 +15,8 @@ import {
   ArrowLeft, Bot, AlertCircle, CheckCircle2, 
   Sparkles, Save, RotateCcw, Download, 
   Eye, EyeOff, Edit3, Terminal, Play,
-  ChevronDown, ChevronRight, GripVertical, X
+  ChevronDown, ChevronRight, GripVertical, X,
+  List
 } from "lucide-react";
 import {
   Dialog,
@@ -25,7 +26,13 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { Input } from "@/components/ui/input";
+import {
+  Sheet,
+  SheetContent,
+  SheetHeader,
+  SheetTitle,
+  SheetTrigger,
+} from "@/components/ui/sheet";
 import { ServerPlan, LogEntry, ServerVersion, DiscordGuild } from "@/types";
 
 const TEMPLATES = [
@@ -58,6 +65,8 @@ export default function GuildDashboard() {
   const inputRef = useRef<HTMLTextAreaElement>(null);
   const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const [pollingStatus, setPollingStatus] = useState<"idle" | "polling" | "detected">("idle");
+  const [showMobileChanges, setShowMobileChanges] = useState(false);
+  const [showMobileLogs, setShowMobileLogs] = useState(false);
 
   const [chatHistory, setChatHistory] = useState<{ prompt: string; plan: ServerPlan; timestamp: number }[]>([]);
   const [conversation, setConversation] = useState<{ role: "user" | "assistant"; content: string }[]>([]);
@@ -383,18 +392,26 @@ export default function GuildDashboard() {
           <Button variant="ghost" size="icon" className="w-8 h-8" onClick={() => router.push("/dashboard")}>
             <ArrowLeft className="w-4 h-4" />
           </Button>
-          <span className="text-sm font-medium text-zinc-300">{guild.name}</span>
+          <span className="text-sm font-medium text-zinc-300 truncate max-w-[120px] sm:max-w-none">{guild.name}</span>
         </div>
-        {botMissing && (
-          <Button variant="outline" size="sm" className="border-amber-500/50 text-amber-400 h-7 text-xs" onClick={startPolling}>
-            <Bot className="w-3 h-3 mr-1" />
-            Invite Bot
+        <div className="flex items-center gap-1">
+          <Button variant="ghost" size="icon" className="w-8 h-8 lg:hidden" onClick={() => setShowMobileChanges(true)}>
+            <List className="w-4 h-4 text-zinc-400" />
           </Button>
-        )}
+          <Button variant="ghost" size="icon" className="w-8 h-8 lg:hidden" onClick={() => setShowMobileLogs(true)}>
+            <Terminal className="w-4 h-4 text-zinc-400" />
+          </Button>
+          {botMissing && (
+            <Button variant="outline" size="sm" className="border-amber-500/50 text-amber-400 h-7 text-xs" onClick={startPolling}>
+              <Bot className="w-3 h-3 mr-1" />
+              Invite Bot
+            </Button>
+          )}
+        </div>
       </div>
 
       <div className="flex-1 flex overflow-hidden">
-        <div className="w-80 border-r border-zinc-800 flex flex-col bg-zinc-950/40 shrink-0">
+        <div className="hidden lg:flex w-80 border-r border-zinc-800 flex-col bg-zinc-950/40 shrink-0">
           <div className="p-3 border-b border-zinc-800 shrink-0">
             <h3 className="text-xs font-semibold text-zinc-500 uppercase tracking-wider">Changes</h3>
           </div>
@@ -529,6 +546,143 @@ export default function GuildDashboard() {
           </div>
         </div>
 
+        <Sheet open={showMobileChanges} onOpenChange={setShowMobileChanges}>
+          <SheetContent side="left" className="w-80 bg-zinc-950 border-zinc-800 p-0">
+            <SheetHeader className="p-3 border-b border-zinc-800">
+              <SheetTitle className="text-xs font-semibold text-zinc-500 uppercase tracking-wider">Changes</SheetTitle>
+            </SheetHeader>
+            <div className="flex-1 overflow-y-auto p-3 space-y-2">
+              {plan && (
+                <div className="bg-zinc-900/60 border border-blue-500/20 rounded-lg overflow-hidden">
+                  <button
+                    onClick={() => toggleExpanded("pending")}
+                    className="w-full flex items-center justify-between p-3 hover:bg-zinc-800/40 transition-colors text-left"
+                  >
+                    <div className="flex items-center gap-2 min-w-0">
+                      {expandedChanges.has("pending") ? <ChevronDown className="w-3 h-3 text-zinc-500 shrink-0" /> : <ChevronRight className="w-3 h-3 text-zinc-500 shrink-0" />}
+                      <div className="min-w-0">
+                        <p className="text-xs font-medium text-blue-300 truncate">Pending Plan</p>
+                        <p className="text-[10px] text-zinc-500">just now</p>
+                      </div>
+                    </div>
+                    <span className="text-[10px] text-zinc-600 shrink-0 ml-2">{plan.roles.length} roles · {plan.channels.text.length + plan.channels.voice.length} ch</span>
+                  </button>
+                  {expandedChanges.has("pending") && (
+                    <div className="px-3 pb-3 space-y-2">
+                      <div className="border-t border-zinc-800 pt-2 space-y-1.5">
+                        {plan.roles.map((r, i) => (
+                          <div key={i} className="flex items-center gap-1.5 text-[11px] text-zinc-400">
+                            <div className="w-1.5 h-1.5 rounded-full shrink-0" style={{ backgroundColor: r.color || "#5865F2" }} />
+                            <span className="truncate">{r.name}</span>
+                          </div>
+                        ))}
+                        {plan.channels.text.map((ch, i) => (
+                          <div key={i} className="text-[11px] text-zinc-500 pl-3 flex items-center gap-1.5">
+                            <span># {ch}</span>
+                            {plan.nsfw_channels?.includes(ch) && (
+                              <span className="text-[9px] font-semibold text-pink-400 bg-pink-500/10 px-1 rounded">NSFW</span>
+                            )}
+                          </div>
+                        ))}
+                        {plan.channels.voice.map((ch, i) => (
+                          <div key={i} className="text-[11px] text-zinc-500 pl-3">🔊 {ch}</div>
+                        ))}
+                      </div>
+                      <div className="flex gap-1.5 pt-1">
+                        <Button variant="outline" size="sm" onClick={() => setEditing(!editing)} className="text-[10px] h-7 text-zinc-400 border-zinc-700 flex-1">
+                          {editing ? <EyeOff className="w-3 h-3 mr-1" /> : <Edit3 className="w-3 h-3 mr-1" />}
+                          {editing ? "View" : "Edit"}
+                        </Button>
+                        <Button variant="outline" size="sm" onClick={handleSaveVersion} className="text-[10px] h-7 text-zinc-400 border-zinc-700 flex-1">
+                          <Save className="w-3 h-3 mr-1" />Save
+                        </Button>
+                      </div>
+                      <Button
+                        onClick={() => { setShowMobileChanges(false); setShowConfirm(true); }}
+                        disabled={executing || botMissing}
+                        className="w-full bg-green-600 hover:bg-green-700 text-white h-8 text-xs"
+                      >
+                        <Play className="w-3 h-3 mr-1" />
+                        {executing ? "Applying..." : "Apply to Server"}
+                      </Button>
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {versions.length > 0 && (
+                <div className="space-y-2">
+                  {plan && <div className="border-t border-zinc-800 pt-1" />}
+                  {versions.map((v) => (
+                    <div key={v.id} className="bg-zinc-900/30 border border-zinc-800 rounded-lg overflow-hidden">
+                      <button
+                        onClick={() => toggleExpanded(v.id)}
+                        className="w-full flex items-center justify-between p-3 hover:bg-zinc-800/30 transition-colors text-left"
+                      >
+                        <div className="flex items-center gap-2 min-w-0">
+                          {expandedChanges.has(v.id) ? <ChevronDown className="w-3 h-3 text-zinc-500 shrink-0" /> : <ChevronRight className="w-3 h-3 text-zinc-500 shrink-0" />}
+                          <div className="min-w-0">
+                            <p className="text-xs font-medium text-zinc-300 truncate">{v.version_name}</p>
+                            <p className="text-[10px] text-zinc-600">{timeAgo(new Date(v.created_at).getTime())}</p>
+                          </div>
+                        </div>
+                        <div className="flex items-center gap-2 shrink-0 ml-2">
+                          <span className="text-[10px] text-zinc-600">{v.plan_json.roles.length} roles</span>
+                          <button
+                            onClick={(e) => { e.stopPropagation(); handleRestore(v); }}
+                            className="w-6 h-6 flex items-center justify-center rounded hover:bg-zinc-800 text-zinc-500 hover:text-blue-400 transition-colors"
+                            title="Reroll"
+                          >
+                            <RotateCcw className="w-3 h-3" />
+                          </button>
+                        </div>
+                      </button>
+                      {expandedChanges.has(v.id) && (
+                        <div className="px-3 pb-3 space-y-1.5 border-t border-zinc-800 pt-2">
+                          {v.plan_json.roles.map((r, i) => (
+                            <div key={i} className="flex items-center gap-1.5 text-[11px] text-zinc-400">
+                              <div className="w-1.5 h-1.5 rounded-full shrink-0" style={{ backgroundColor: r.color || "#5865F2" }} />
+                              <span className="truncate">{r.name}</span>
+                            </div>
+                          ))}
+                          {v.plan_json.channels.text.map((ch, i) => (
+                            <div key={i} className="text-[11px] text-zinc-500 pl-3 flex items-center gap-1.5">
+                              <span># {ch}</span>
+                              {v.plan_json.nsfw_channels?.includes(ch) && (
+                                <span className="text-[9px] font-semibold text-pink-400 bg-pink-500/10 px-1 rounded">NSFW</span>
+                              )}
+                            </div>
+                          ))}
+                          {v.plan_json.channels.voice.map((ch, i) => (
+                            <div key={i} className="text-[11px] text-zinc-500 pl-3">🔊 {ch}</div>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              )}
+
+              {!plan && versions.length === 0 && (
+                <div className="flex items-center justify-center h-32">
+                  <p className="text-[11px] text-zinc-700 text-center">No changes yet<br />Generate a plan first</p>
+                </div>
+              )}
+              {plan && botMissing && (
+                <div className="bg-amber-500/10 border border-amber-500/20 rounded-lg p-3 text-center">
+                  <p className="text-[11px] text-amber-400 font-medium mb-1">Bot not invited</p>
+                  <p className="text-[10px] text-zinc-500 mb-2">Invite the bot to apply changes</p>
+                  <Button
+                    size="sm"
+                    onClick={startPolling}
+                    className="bg-amber-600 hover:bg-amber-700 text-white text-[10px] h-7"
+                  >Invite Bot</Button>
+                </div>
+              )}
+            </div>
+          </SheetContent>
+        </Sheet>
+
         <div className="flex-1 flex flex-col min-w-0">
           <div className="flex-1 overflow-y-auto px-4 py-4 space-y-3">
             {conversation.length === 0 && !plan && (
@@ -632,7 +786,7 @@ export default function GuildDashboard() {
           </div>
         </div>
 
-        <div className="w-72 border-l border-zinc-800 p-4 bg-zinc-950/40 flex flex-col shrink-0 overflow-hidden">
+        <div className="hidden lg:flex w-72 border-l border-zinc-800 p-4 bg-zinc-950/40 flex-col shrink-0 overflow-hidden">
           <h3 className="text-xs font-semibold text-zinc-500 uppercase tracking-wider mb-3 flex items-center gap-1.5 shrink-0">
             <Terminal className="w-3 h-3 text-cyan-400" />
             Logs
@@ -665,6 +819,44 @@ export default function GuildDashboard() {
             </div>
           </div>
         </div>
+
+        <Sheet open={showMobileLogs} onOpenChange={setShowMobileLogs}>
+          <SheetContent side="right" className="w-72 bg-zinc-950 border-zinc-800 p-4">
+            <SheetHeader className="p-0 mb-3">
+              <SheetTitle className="text-xs font-semibold text-zinc-500 uppercase tracking-wider flex items-center gap-1.5">
+                <Terminal className="w-3 h-3 text-cyan-400" />
+                Logs
+              </SheetTitle>
+            </SheetHeader>
+            {executing && (
+              <Progress value={progress} className="mb-3 h-1 bg-zinc-800 shrink-0 [&>div]:bg-gradient-to-r [&>div]:from-blue-500 [&>div]:to-purple-500" />
+            )}
+            <div className="flex-1 overflow-y-auto">
+              <div className="font-mono text-[10px] space-y-1">
+                {logs.length === 0 ? (
+                  <p className="text-zinc-700">No activity yet</p>
+                ) : (
+                  logs.map((log, i) => (
+                    <div key={i} className={`flex items-start gap-1.5 ${
+                      log.type === "error" ? "text-red-400" :
+                      log.type === "ok" ? "text-green-400" :
+                      log.type === "sync" ? "text-cyan-400" : "text-zinc-400"
+                    }`}>
+                      <span className="shrink-0 mt-0.5">
+                        {log.type === "ok" && <CheckCircle2 className="w-2.5 h-2.5" />}
+                        {log.type === "error" && <AlertCircle className="w-2.5 h-2.5" />}
+                        {log.type === "sync" && <Bot className="w-2.5 h-2.5" />}
+                        {log.type === "done" && <CheckCircle2 className="w-2.5 h-2.5" />}
+                      </span>
+                      <span>{log.message}</span>
+                    </div>
+                  ))
+                )}
+                <div ref={logEndRef} />
+              </div>
+            </div>
+          </SheetContent>
+        </Sheet>
       </div>
 
       <Dialog open={showConfirm} onOpenChange={setShowConfirm}>

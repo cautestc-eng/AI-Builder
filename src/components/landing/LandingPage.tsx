@@ -106,7 +106,7 @@ export default function LandingPage() {
                 </div>
                 <div className="text-zinc-500 text-sm font-mono">plan-preview.tsx</div>
               </div>
-              <div className="grid grid-cols-3 gap-4 p-4">
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 p-4">
                 <div className="col-span-1 bg-zinc-900 rounded-lg p-4 border border-zinc-800">
                   <div className="text-blue-400 text-sm font-mono mb-3">$ describe your server...</div>
                   <div className="space-y-2">
