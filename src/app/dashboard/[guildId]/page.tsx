@@ -16,7 +16,7 @@ import {
   Sparkles, Save, RotateCcw, Download, 
   Eye, EyeOff, Edit3, Terminal, Play,
   ChevronDown, ChevronRight, GripVertical, X,
-  List
+  List, Trash2
 } from "lucide-react";
 import {
   Dialog,
@@ -360,6 +360,33 @@ export default function GuildDashboard() {
     }
   };
 
+  const handleDeleteVersion = async (versionId: string) => {
+    const res = await fetch(`/api/versions/${versionId}`, { method: "DELETE" });
+    if (res.ok) {
+      setVersions((prev) => prev.filter((v) => v.id !== versionId));
+      toast.success("Version deleted");
+    } else {
+      toast.error("Failed to delete version");
+    }
+  };
+
+  const handleDeleteChatHistory = (index: number) => {
+    setChatHistory((prev) => {
+      const next = prev.filter((_, i) => i !== index);
+      localStorage.setItem(`chat_history_${guildId}`, JSON.stringify(next));
+      return next;
+    });
+    toast.success("Request removed");
+  };
+
+  const handleClearPlan = () => {
+    setPlan(null);
+    setConversation([]);
+    setLogs([]);
+    setEditing(false);
+    toast.success("Plan discarded");
+  };
+
   const updateRole = (index: number, field: string, value: string | string[]) => {
     if (!plan) return;
     const newPlan = { ...plan };
@@ -470,6 +497,9 @@ export default function GuildDashboard() {
                       <Button variant="outline" size="sm" onClick={handleSaveVersion} className="text-[10px] h-7 text-zinc-400 border-zinc-700 flex-1">
                         <Save className="w-3 h-3 mr-1" />Save
                       </Button>
+                      <Button variant="outline" size="sm" onClick={handleClearPlan} className="text-[10px] h-7 text-red-400 border-red-700/50 hover:bg-red-950/30 flex-1">
+                        <Trash2 className="w-3 h-3 mr-1" />Discard
+                      </Button>
                     </div>
                     <Button
                       onClick={() => setShowConfirm(true)}
@@ -508,6 +538,13 @@ export default function GuildDashboard() {
                           title="Reroll"
                         >
                           <RotateCcw className="w-3 h-3" />
+                        </button>
+                        <button
+                          onClick={(e) => { e.stopPropagation(); handleDeleteVersion(v.id); }}
+                          className="w-6 h-6 flex items-center justify-center rounded hover:bg-zinc-800 text-zinc-500 hover:text-red-400 transition-colors"
+                          title="Delete version"
+                        >
+                          <Trash2 className="w-3 h-3" />
                         </button>
                       </div>
                     </button>
@@ -606,6 +643,9 @@ export default function GuildDashboard() {
                         <Button variant="outline" size="sm" onClick={handleSaveVersion} className="text-[10px] h-7 text-zinc-400 border-zinc-700 flex-1">
                           <Save className="w-3 h-3 mr-1" />Save
                         </Button>
+                        <Button variant="outline" size="sm" onClick={handleClearPlan} className="text-[10px] h-7 text-red-400 border-red-700/50 hover:bg-red-950/30 flex-1">
+                          <Trash2 className="w-3 h-3 mr-1" />Discard
+                        </Button>
                       </div>
                       <Button
                         onClick={() => { setShowMobileChanges(false); setShowConfirm(true); }}
@@ -644,6 +684,13 @@ export default function GuildDashboard() {
                             title="Reroll"
                           >
                             <RotateCcw className="w-3 h-3" />
+                          </button>
+                          <button
+                            onClick={(e) => { e.stopPropagation(); handleDeleteVersion(v.id); }}
+                            className="w-6 h-6 flex items-center justify-center rounded hover:bg-zinc-800 text-zinc-500 hover:text-red-400 transition-colors"
+                            title="Delete version"
+                          >
+                            <Trash2 className="w-3 h-3" />
                           </button>
                         </div>
                       </button>
@@ -731,14 +778,20 @@ export default function GuildDashboard() {
                 <p className="text-[10px] text-zinc-600 uppercase tracking-wider mb-1.5">Recent</p>
                 <div className="flex flex-wrap gap-1.5">
                   {chatHistory.slice(0, 5).map((item, i) => (
-                    <Badge
-                      key={i}
-                      variant="outline"
-                      className="cursor-pointer text-[10px] border-zinc-700 text-zinc-400 hover:border-zinc-500"
-                      onClick={() => { setPlan(item.plan); setPrompt(item.prompt); toast.success("Restored from history"); }}
-                    >
-                      {item.prompt.slice(0, 30)}...
-                    </Badge>
+                    <div key={i} className="flex items-center gap-0 bg-zinc-900 border border-zinc-700 rounded-full pr-0.5 hover:border-zinc-500 transition-colors group">
+                      <button
+                        className="text-[10px] text-zinc-400 px-2.5 py-1 whitespace-nowrap"
+                        onClick={() => { setPlan(item.plan); setPrompt(item.prompt); toast.success("Restored from history"); }}
+                      >
+                        {item.prompt.slice(0, 25)}...
+                      </button>
+                      <button
+                        onClick={() => handleDeleteChatHistory(i)}
+                        className="w-5 h-5 flex items-center justify-center rounded-full text-zinc-600 hover:text-red-400 hover:bg-red-950/30 transition-colors opacity-0 group-hover:opacity-100"
+                      >
+                        <X className="w-3 h-3" />
+                      </button>
+                    </div>
                   ))}
                 </div>
               </div>
