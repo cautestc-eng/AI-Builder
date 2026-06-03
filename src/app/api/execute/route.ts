@@ -7,7 +7,7 @@ import { checkPlanSafety } from "@/lib/safety";
 
 export const maxDuration = 300;
 
-const GUILD_COOLDOWN_SECONDS = 30;
+const GUILD_COOLDOWN_SECONDS = 5;
 const DAILY_EXECUTE_LIMIT = 20;
 
 async function checkGuildCooldown(guildId: string): Promise<number | null> {
