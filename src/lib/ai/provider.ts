@@ -9,7 +9,8 @@ export interface ConversationMessage {
 
 export type ConverseResult =
   | { type: "clarify"; questions: string[] }
-  | { type: "plan"; plan: ServerPlan };
+  | { type: "plan"; plan: ServerPlan }
+  | { type: "reject"; reason: string };
 
 const MODELS = {
   "llama-70b": { id: "llama-3.3-70b-versatile", provider: "groq" },
@@ -144,15 +145,41 @@ VIEW_CHANNEL, SEND_MESSAGES, MANAGE_MESSAGES, MENTION_EVERYONE, ADD_REACTIONS, E
 - NSFW channels are allowed for adult-themed servers but must never intersect with the blocked categories above.`;
 
 
-const SYSTEM_CONVERSE = `You are a Discord server architect. You respond ONLY with JSON. There are exactly two possible outputs.
+const SYSTEM_CONVERSE = `You are a Discord server architect. You respond ONLY with JSON. There are exactly three possible output types.
 
 === OUTPUT A: GENERATE PLAN ===
 Use this when you can make a reasonable server structure. This is the DEFAULT choice.
-{"roles":[{"name":"@everyone","permissions":["VIEW_CHANNEL","SEND_MESSAGES","ADD_REACTIONS","READ_MESSAGE_HISTORY","CONNECT","SPEAK"],"color":"#99AAB5"},{"name":"Admin","permissions":["ADMINISTRATOR"],"color":"#FF0000"}],"channels":{"text":["general","announcements"],"voice":["General"]},"nsfw_channels":[],"category_structure":[{"name":"General","channels":["general","announcements"]}]}
+{"roles":[{"name":"@everyone","permissions":["VIEW_CHANNEL","SEND_MESSAGES","ADD_REACTIONS","READ_MESSAGE_HISTORY","CONNECT","SPEAK"],"color":"#99AAB5"},{"name":"Admin","permissions":["ADMINISTRATOR"],"color":"#FF0000"}],"channels":{"text":["general","announcements"],"voice":["General"]},"nsfw_channels":[],"category_structure":[{"name":"General","channels":["general","announcements"]}],"guild_settings":{"verification_level":"low","default_message_notifications":"only_mentions","explicit_content_filter":"members_without_roles"}}
+
+You can also include guild_settings to configure the server:
+- "verification_level": "none" | "low" | "medium" | "high" | "very_high"
+- "default_message_notifications": "all" | "only_mentions"
+- "explicit_content_filter": "disabled" | "members_without_roles" | "all_members"
+- "system_channel": channel name string (must exist in channels.text)
+- "afk_channel": voice channel name string (must exist in channels.voice)
+- "afk_timeout": number in seconds (60-14400)
+All guild_settings fields are optional. Omit if not specified.
 
 === OUTPUT B: ASK CLARIFY QUESTIONS ===
 Use this ONLY when all of these are true: user gave zero specifics (e.g. "make a server" with nothing else), no theme, no purpose, no size, no preferences. This is the RARE exception.
 {"type":"clarify","questions":["What theme or purpose?","How many members?"]}
+
+=== OUTPUT C: REJECT ===
+{"type":"reject","reason":"Explain what they asked for that you cannot do and why."}
+Use this when the user asks you to do something that you CANNOT do. Things you CANNOT do:
+- Change server icon, splash, banner, or any image
+- Create, delete, or modify emojis or stickers
+- Create or modify webhooks, bots, or integrations
+- Set server boosts, vanity URL, or premium features
+- Moderate users (ban, kick, mute, warn)
+- Assign roles to users
+- Send messages or create threads
+- Set channel-specific permission overwrites for individual users
+- Change guild owner or transfer ownership
+- Set welcome screen, onboarding, or community features
+- Anything involving money, subscriptions, or Nitro
+If the user asks for any of these, use OUTPUT C (reject) with a clear reason.
+If the user asks for something you CAN do (roles, channels, categories, permissions, verification level, notification settings, content filter, system channel, afk channel), use OUTPUT A (plan).
 
 === DECISION TREE (follow exactly) ===
 Step 1: Does the user's message mention a theme/purpose? (gaming, coding, community, music, art, school, work, etc.)
@@ -363,6 +390,7 @@ class GroqProvider implements AIProvider {
         },
         nsfw_channels: parsed.nsfw_channels || [],
         category_structure: parsed.category_structure || [],
+        guild_settings: parsed.guild_settings || undefined,
       };
     } catch (e: any) {
       throw new Error(`Failed to parse AI JSON: ${e.message}. Raw: ${jsonStr.slice(0, 200)}`);
@@ -407,6 +435,10 @@ class GroqProvider implements AIProvider {
       return { type: "clarify", questions: parsed.questions };
     }
 
+    if (parsed.type === "reject" && typeof parsed.reason === "string") {
+      return { type: "reject", reason: parsed.reason };
+    }
+
     return {
       type: "plan",
       plan: {
@@ -417,6 +449,7 @@ class GroqProvider implements AIProvider {
         },
         nsfw_channels: parsed.nsfw_channels || [],
         category_structure: parsed.category_structure || [],
+        guild_settings: parsed.guild_settings || undefined,
       },
     };
   }

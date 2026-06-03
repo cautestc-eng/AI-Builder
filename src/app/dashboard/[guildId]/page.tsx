@@ -187,6 +187,9 @@ export default function GuildDashboard() {
       if (data.type === "clarify") {
         setMessages((prev) => [...prev, { role: "assistant", content: (data.questions as string[]).join("\n") }]);
         toast.info("Answer the questions and send again");
+      } else if (data.type === "reject") {
+        setMessages((prev) => [...prev, { role: "assistant", content: data.reason as string }]);
+        toast.error("Request cannot be fulfilled");
       } else if (data.type === "plan") {
         setMessages((prev) => [...prev, { role: "assistant", content: "Here's your server plan!", plan: data.plan as ServerPlan }]);
         setChatHistory((prev) => [{ prompt: userMsg, plan: data.plan, timestamp: Date.now() }, ...prev]);

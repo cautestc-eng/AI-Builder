@@ -15,6 +15,15 @@ export interface DiscordGuild {
   bot_installed?: boolean;
 }
 
+export interface GuildSettings {
+  verification_level?: "none" | "low" | "medium" | "high" | "very_high";
+  default_message_notifications?: "all" | "only_mentions";
+  explicit_content_filter?: "disabled" | "members_without_roles" | "all_members";
+  system_channel?: string;
+  afk_channel?: string;
+  afk_timeout?: number;
+}
+
 export interface ServerPlan {
   roles: ServerRole[];
   channels: {
@@ -23,6 +32,7 @@ export interface ServerPlan {
   };
   nsfw_channels?: string[];
   category_structure: ServerCategory[];
+  guild_settings?: GuildSettings;
 }
 
 export interface ServerRole {

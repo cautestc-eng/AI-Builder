@@ -272,13 +272,62 @@ export async function executePlan(
 
     for (const existing of existingChannels) {
       if (systemChannelIds.has(existing.id)) continue;
-      if (existing.managed) continue; // bot-managed channel
+      if (existing.managed) continue;
       if (!planChannelNames.has(existing.name)) {
         try {
           await discordFetch(`/guilds/${guildId}/channels/${existing.id}`, { method: "DELETE" });
           logs.push(makeLog("ok", `Deleted channel: #${existing.name}`));
         } catch (err: any) {
           logs.push(makeLog("error", `Failed to delete channel #${existing.name}: ${err.message}`));
+        }
+      }
+    }
+
+    // --- GUILD SETTINGS ---
+    if (plan.guild_settings) {
+      const gs = plan.guild_settings;
+      const patchBody: Record<string, any> = {};
+
+      if (gs.verification_level) {
+        const levels: Record<string, number> = { none: 0, low: 1, medium: 2, high: 3, very_high: 4 };
+        patchBody.verification_level = levels[gs.verification_level];
+      }
+      if (gs.default_message_notifications) {
+        patchBody.default_message_notifications = gs.default_message_notifications === "all" ? 0 : 1;
+      }
+      if (gs.explicit_content_filter) {
+        const filters: Record<string, number> = { disabled: 0, members_without_roles: 1, all_members: 2 };
+        patchBody.explicit_content_filter = filters[gs.explicit_content_filter];
+      }
+      if (gs.afk_timeout !== undefined) patchBody.afk_timeout = Math.max(60, Math.min(14400, gs.afk_timeout));
+
+      if (gs.system_channel) {
+        try {
+          const ch = await discordFetch(`/guilds/${guildId}/channels`);
+          const channels: any[] = Array.isArray(ch) ? ch : [];
+          const found = channels.find((c: any) => c.name === gs.system_channel && c.type === 0);
+          if (found) patchBody.system_channel_id = found.id;
+        } catch {}
+      }
+
+      if (gs.afk_channel) {
+        try {
+          const ch = await discordFetch(`/guilds/${guildId}/channels`);
+          const channels: any[] = Array.isArray(ch) ? ch : [];
+          const found = channels.find((c: any) => c.name === gs.afk_channel && c.type === 2);
+          if (found) patchBody.afk_channel_id = found.id;
+        } catch {}
+      }
+
+      if (Object.keys(patchBody).length > 0) {
+        try {
+          await discordFetch(`/guilds/${guildId}`, {
+            method: "PATCH",
+            body: JSON.stringify(patchBody),
+          });
+          logs.push(makeLog("ok", "Applied guild settings"));
+        } catch (err: any) {
+          logs.push(makeLog("error", `Failed to apply guild settings: ${err.message}`));
         }
       }
     }
