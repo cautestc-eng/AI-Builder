@@ -168,16 +168,25 @@ export async function executePlan(
     }
 
     // Delete roles not in plan (skip @everyone, managed, bot roles)
+    let roleDeleteCount = 0;
     for (const existing of existingRoles) {
       if (existing.name === "@everyone") continue;
-      if (existing.managed) continue;
-      if (MANAGED_ROLE_NAMES.has(existing.name)) continue;
+      if (existing.managed) {
+        logs.push(makeLog("sync", `Skip managed role: ${existing.name}`));
+        continue;
+      }
+      if (MANAGED_ROLE_NAMES.has(existing.name)) {
+        logs.push(makeLog("sync", `Skip managed role: ${existing.name}`));
+        continue;
+      }
       if (!planRoleNamesLower.has(existing.name.toLowerCase())) {
         try {
           await discordFetch(`/guilds/${guildId}/roles/${existing.id}`, { method: "DELETE" });
-          logs.push(makeLog("ok", `Deleted role: ${existing.name}`));
+          logs.push(makeLog("ok", `Deleted role: ${existing.name} (${existing.id})`));
+          roleDeleteCount++;
+          await new Promise(r => setTimeout(r, 300));
         } catch (err: any) {
-          logs.push(makeLog("error", `Failed to delete role ${existing.name}: ${err.message}`));
+          logs.push(makeLog("error", `Failed to delete role ${existing.name} (${existing.id}): ${err.message}`));
         }
       }
     }
@@ -282,6 +291,8 @@ export async function executePlan(
 
     // --- DELETE CHANNELS NOT IN PLAN (re-fetch to get fresh state) ---
     const freshChannels: any[] = await discordFetch(`/guilds/${guildId}/channels`);
+    logs.push(makeLog("sync", `Guild has ${freshChannels.length} channels: ${freshChannels.map((c: any) => `#${c.name}(${c.id})`).join(", ")}`));
+    logs.push(makeLog("sync", `Plan keeps channels: ${[...planChannelNamesLower].join(", ")}`));
     const systemChannelIds = new Set<string>();
     try {
       const guild: any = await discordFetch(`/guilds/${guildId}`);
@@ -290,15 +301,22 @@ export async function executePlan(
       if (guild.public_updates_channel_id) systemChannelIds.add(guild.public_updates_channel_id);
     } catch {}
 
-    for (const existing of existingChannels) {
-      if (systemChannelIds.has(existing.id)) continue;
-      if (existing.managed) continue;
+    for (const existing of freshChannels) {
+      if (systemChannelIds.has(existing.id)) {
+        logs.push(makeLog("sync", `Skip system channel: #${existing.name}`));
+        continue;
+      }
+      if (existing.managed) {
+        logs.push(makeLog("sync", `Skip managed channel: #${existing.name}`));
+        continue;
+      }
       if (!planChannelNamesLower.has(existing.name.toLowerCase())) {
         try {
           await discordFetch(`/guilds/${guildId}/channels/${existing.id}`, { method: "DELETE" });
-          logs.push(makeLog("ok", `Deleted channel: #${existing.name}`));
+          logs.push(makeLog("ok", `Deleted channel: #${existing.name} (${existing.id})`));
+          await new Promise(r => setTimeout(r, 300));
         } catch (err: any) {
-          logs.push(makeLog("error", `Failed to delete channel #${existing.name}: ${err.message}`));
+          logs.push(makeLog("error", `Failed to delete #${existing.name} (${existing.id}): ${err.message}`));
         }
       }
     }
