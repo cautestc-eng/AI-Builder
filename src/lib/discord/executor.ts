@@ -97,11 +97,22 @@ export async function executePlan(
   const logs: LogEntry[] = [];
 
   try {
-    // Verify bot permissions first
-    const botMember: any = await discordFetch(`/guilds/${guildId}/members/@me`);
-    const botRoles: any[] = await discordFetch(`/guilds/${guildId}/roles`);
-    const botHighestRole = Math.max(...botRoles.filter((r: any) => botMember.roles.includes(r.id)).map((r: any) => r.position), 0);
-    logs.push(makeLog("sync", `Bot highest role position: ${botHighestRole}`));
+    // Verify bot has Manage Channels permission
+    const botUser: any = await discordFetch(`/users/@me`);
+    const botUserId = botUser.id;
+    const allGuildRoles: any[] = await discordFetch(`/guilds/${guildId}/roles`);
+    const botMember: any = await discordFetch(`/guilds/${guildId}/members/${botUserId}`);
+    const botRoleIds = new Set(botMember.roles);
+    const hasAdmin = allGuildRoles.some((r: any) => botRoleIds.has(r.id) && (BigInt(r.permissions) & 0x8n) === 0x8n);
+    const hasManageChannels = hasAdmin || allGuildRoles.some((r: any) => botRoleIds.has(r.id) && (BigInt(r.permissions) & 0x10n) === 0x10n);
+    const hasManageRoles = hasAdmin || allGuildRoles.some((r: any) => botRoleIds.has(r.id) && (BigInt(r.permissions) & 0x10000000n) === 0x10000000n);
+
+    if (!hasAdmin) {
+      const missing: string[] = [];
+      if (!hasManageChannels) missing.push("Manage Channels");
+      if (!hasManageRoles) missing.push("Manage Roles");
+      logs.push(makeLog("warn", `Bot missing permissions: ${missing.join(", ")}. Some operations may fail. Re-invite bot with Administrator.`));
+    }
 
     const existingRoles: any[] = await discordFetch(`/guilds/${guildId}/roles`);
     const existingChannels: any[] = await discordFetch(`/guilds/${guildId}/channels`);

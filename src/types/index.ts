@@ -55,7 +55,7 @@ export interface ExecutionLog {
 }
 
 export interface LogEntry {
-  type: "ok" | "error" | "sync" | "done";
+  type: "ok" | "error" | "sync" | "done" | "warn";
   message: string;
   timestamp: string;
 }

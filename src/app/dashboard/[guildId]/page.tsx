@@ -404,12 +404,13 @@ export default function GuildDashboard() {
               {logs.map((log, i) => (
                 <div key={i} className={`flex items-start gap-1.5 ${
                   log.type === "error" ? "text-red-400" : log.type === "ok" ? "text-green-400" :
-                  log.type === "sync" ? "text-cyan-400" : "text-zinc-400"
+                  log.type === "sync" ? "text-cyan-400" : log.type === "warn" ? "text-amber-400" : "text-zinc-400"
                 }`}>
                   <span className="shrink-0 mt-0.5">
                     {["ok", "done"].includes(log.type) && <CheckCircle2 className="w-2.5 h-2.5" />}
                     {log.type === "error" && <AlertCircle className="w-2.5 h-2.5" />}
                     {log.type === "sync" && <Bot className="w-2.5 h-2.5" />}
+                    {log.type === "warn" && <AlertCircle className="w-2.5 h-2.5 text-amber-400" />}
                   </span>
                   <span>{log.message}</span>
                 </div>
