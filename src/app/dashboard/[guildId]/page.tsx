@@ -174,6 +174,16 @@ export default function GuildDashboard() {
     logEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [logs]);
 
+  useEffect(() => {
+    if (plan) {
+      setExpandedChanges((prev) => {
+        const next = new Set(prev);
+        next.add("pending");
+        return next;
+      });
+    }
+  }, [plan]);
+
   const addLog = (type: LogEntry["type"], message: string) => {
     setLogs((prev) => [...prev, { type, message, timestamp: new Date().toISOString() }]);
   };
