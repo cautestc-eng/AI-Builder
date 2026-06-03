@@ -49,6 +49,10 @@ export async function POST(req: NextRequest) {
         return NextResponse.json({ type: "clarify", questions: result.questions });
       }
 
+      if (result.type === "reject") {
+        return NextResponse.json({ type: "reject", reason: result.reason });
+      }
+
       if (result.type !== "plan") {
         return NextResponse.json({ error: "Unexpected response from AI" }, { status: 500 });
       }
