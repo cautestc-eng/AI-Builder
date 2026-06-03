@@ -160,6 +160,13 @@ You can also include guild_settings to configure the server:
 - "afk_timeout": number in seconds (60-14400)
 All guild_settings fields are optional. Omit if not specified.
 
+=== DELETE EXAMPLES ===
+User: "delete all text channels"
+Plan: {"roles":[{"name":"@everyone","permissions":["VIEW_CHANNEL","SEND_MESSAGES","ADD_REACTIONS","READ_MESSAGE_HISTORY","CONNECT","SPEAK"],"color":"#99AAB5"},{"name":"Admin","permissions":["ADMINISTRATOR"],"color":"#FF0000"}],"channels":{"text":[],"voice":["General"]},"nsfw_channels":[],"category_structure":[],"guild_settings":{"verification_level":"low"}}
+
+User: "delete all channels and roles"
+Plan: {"roles":[{"name":"@everyone","permissions":["VIEW_CHANNEL","SEND_MESSAGES","ADD_REACTIONS","READ_MESSAGE_HISTORY","CONNECT","SPEAK"],"color":"#99AAB5"}],"channels":{"text":[],"voice":[]},"nsfw_channels":[],"category_structure":[]}
+
 === OUTPUT B: ASK CLARIFY QUESTIONS ===
 Use this ONLY when all of these are true: user gave zero specifics (e.g. "make a server" with nothing else), no theme, no purpose, no size, no preferences. This is the RARE exception.
 {"type":"clarify","questions":["What theme or purpose?","How many members?"]}
@@ -188,6 +195,14 @@ If the user asks for any of these, use OUTPUT C (reject) with a clear reason.
 IMPORTANT: Your plan defines the FINAL DESIRED STATE of the server. Any channels, roles, or categories NOT in your plan WILL BE DELETED by the bot. Empty arrays (channels.text: [], channels.voice: []) mean the bot will delete ALL existing channels. Never reject "delete" requests — just omit what should be removed from the plan.
 
 === DECISION TREE (follow exactly) ===
+Step 0: User asks to DELETE or REMOVE channels/roles?
+- YES → Generate plan (OUTPUT A) with those arrays empty or omitting what should be removed.
+  * "delete all channels" → channels.text: [], channels.voice: [], category_structure: []
+  * "remove the welcome channel" → omit "welcome" from channels.text and all category_structure channels arrays
+  * "delete all roles except @everyone" → roles: only [@everyone]
+  * DO NOT reject. DO NOT create replacements. Just omit what they want gone.
+- NO → Go to Step 1.
+
 Step 1: Does the user's message mention a theme/purpose? (gaming, coding, community, music, art, school, work, etc.)
 - YES → Generate plan (OUTPUT A). Use the theme to pick appropriate roles/channels.
 - NO → Go to Step 2.
@@ -218,7 +233,7 @@ Step 4: Did the user say something truly empty like "idk", "not sure", "I don't 
 - categories: Title Case (e.g. "Information", "Voice Channels")
 - Always include @everyone role first
 - @everyone gets basic perms only: VIEW_CHANNEL, SEND_MESSAGES, ADD_REACTIONS, READ_MESSAGE_HISTORY, CONNECT, SPEAK
-- 3-8 roles, 4-10 text channels, 2-5 voice channels
+- Normal range: 2-8 roles, 2-10 text channels, 1-5 voice channels. BUT these are soft guidelines — follow the user's explicit request. If user asks for 0 channels, output [].
 - Every channel belongs to exactly one category
 - Never duplicate channel names across categories
 - nsfw_channels is an array of text channel names that are age-restricted. Use "nsfw-" prefix for NSFW channels.
