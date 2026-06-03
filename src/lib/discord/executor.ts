@@ -100,11 +100,11 @@ export async function executePlan(
     const existingRoles: any[] = await discordFetch(`/guilds/${guildId}/roles`);
     const existingChannels: any[] = await discordFetch(`/guilds/${guildId}/channels`);
 
-    const planRoleNames = new Set(plan.roles.map(r => r.name));
-    const planChannelNames = new Set([
-      ...plan.channels.text,
-      ...plan.channels.voice,
-      ...plan.category_structure.map(c => c.name),
+    const planRoleNamesLower = new Set(plan.roles.map(r => r.name.toLowerCase()));
+    const planChannelNamesLower = new Set([
+      ...plan.channels.text.map(n => n.toLowerCase()),
+      ...plan.channels.voice.map(n => n.toLowerCase()),
+      ...plan.category_structure.map(c => c.name.toLowerCase()),
     ]);
 
     // --- ROLES ---
@@ -114,7 +114,7 @@ export async function executePlan(
 
     for (const role of sortedRoles) {
       if (role.name === "@everyone") continue;
-      const existing = existingRoles.find((r: any) => r.name === role.name);
+      const existing = existingRoles.find((r: any) => r.name.toLowerCase() === role.name.toLowerCase());
       if (existing) {
         // Update existing role's permissions and color
         try {
@@ -153,7 +153,7 @@ export async function executePlan(
       if (existing.name === "@everyone") continue;
       if (existing.managed) continue;
       if (MANAGED_ROLE_NAMES.has(existing.name)) continue;
-      if (!planRoleNames.has(existing.name)) {
+      if (!planRoleNamesLower.has(existing.name.toLowerCase())) {
         try {
           await discordFetch(`/guilds/${guildId}/roles/${existing.id}`, { method: "DELETE" });
           logs.push(makeLog("ok", `Deleted role: ${existing.name}`));
@@ -191,7 +191,7 @@ export async function executePlan(
     const createdCategories = new Map<string, string>();
 
     for (const cat of plan.category_structure) {
-      const existing = existingChannels.find((c: any) => c.name === cat.name && c.type === 4);
+      const existing = existingChannels.find((c: any) => c.name.toLowerCase() === cat.name.toLowerCase() && c.type === 4);
       if (existing) {
         createdCategories.set(cat.name, existing.id);
         logs.push(makeLog("sync", `Category exists: ${cat.name}`));
@@ -211,7 +211,7 @@ export async function executePlan(
 
     // --- TEXT CHANNELS ---
     for (const chName of plan.channels.text) {
-      const existing = existingChannels.find((c: any) => c.name === chName && c.type === 0);
+      const existing = existingChannels.find((c: any) => c.name.toLowerCase() === chName.toLowerCase() && c.type === 0);
       if (existing) {
         // Update NSFW flag
         if (plan.nsfw_channels?.includes(chName) !== existing.nsfw) {
@@ -242,7 +242,7 @@ export async function executePlan(
 
     // --- VOICE CHANNELS ---
     for (const chName of plan.channels.voice) {
-      const existing = existingChannels.find((c: any) => c.name === chName && c.type === 2);
+      const existing = existingChannels.find((c: any) => c.name.toLowerCase() === chName.toLowerCase() && c.type === 2);
       if (existing) {
         logs.push(makeLog("sync", `Voice channel exists: ${chName}`));
         continue;
@@ -273,7 +273,7 @@ export async function executePlan(
     for (const existing of existingChannels) {
       if (systemChannelIds.has(existing.id)) continue;
       if (existing.managed) continue;
-      if (!planChannelNames.has(existing.name)) {
+      if (!planChannelNamesLower.has(existing.name.toLowerCase())) {
         try {
           await discordFetch(`/guilds/${guildId}/channels/${existing.id}`, { method: "DELETE" });
           logs.push(makeLog("ok", `Deleted channel: #${existing.name}`));
@@ -305,7 +305,7 @@ export async function executePlan(
         try {
           const ch = await discordFetch(`/guilds/${guildId}/channels`);
           const channels: any[] = Array.isArray(ch) ? ch : [];
-          const found = channels.find((c: any) => c.name === gs.system_channel && c.type === 0);
+          const found = channels.find((c: any) => c.name.toLowerCase() === gs.system_channel!.toLowerCase() && c.type === 0);
           if (found) patchBody.system_channel_id = found.id;
         } catch {}
       }
@@ -314,7 +314,7 @@ export async function executePlan(
         try {
           const ch = await discordFetch(`/guilds/${guildId}/channels`);
           const channels: any[] = Array.isArray(ch) ? ch : [];
-          const found = channels.find((c: any) => c.name === gs.afk_channel && c.type === 2);
+          const found = channels.find((c: any) => c.name.toLowerCase() === gs.afk_channel!.toLowerCase() && c.type === 2);
           if (found) patchBody.afk_channel_id = found.id;
         } catch {}
       }
