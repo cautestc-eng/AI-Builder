@@ -22,10 +22,10 @@ const DANGEROUS_PERMISSIONS = new Set([
   "MANAGE_GUILD", "MANAGE_ROLES", "MANAGE_WEBHOOKS",
 ]);
 
-const MAX_ROLES = 25;
-const MAX_TEXT_CHANNELS = 30;
-const MAX_VOICE_CHANNELS = 15;
-const MAX_TOTAL_CHANNELS = 40;
+const MAX_ROLES = 250;
+const MAX_TEXT_CHANNELS = 250;
+const MAX_VOICE_CHANNELS = 250;
+const MAX_TOTAL_CHANNELS = 500;
 
 interface ValidationResult {
   valid: boolean;

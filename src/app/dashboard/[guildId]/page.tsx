@@ -57,6 +57,11 @@ export default function GuildDashboard() {
   const [showLogs, setShowLogs] = useState(false);
 
   const [messages, setMessages] = useState<ChatMessage[]>([]);
+  const [deletePreview, setDeletePreview] = useState<{
+    channels: string[];
+    roles: string[];
+  } | null>(null);
+  const [previewLoading, setPreviewLoading] = useState(false);
 
   function timeAgo(ts: number) {
     const s = Math.floor((Date.now() - ts) / 1000);
@@ -187,6 +192,31 @@ export default function GuildDashboard() {
       toast.success("Saved!");
     } else { toast.error("Save failed"); }
   };
+
+  const handleApply = useCallback(async (plan: ServerPlan) => {
+    setConfirmPlan(plan);
+    setDeletePreview(null);
+    setPreviewLoading(true);
+    try {
+      const res = await fetch(`/api/guilds/${guildId}/channels`);
+      const data = await res.json();
+      const planNames = new Set([
+        ...plan.channels.text.map((n: string) => n.toLowerCase()),
+        ...plan.channels.voice.map((n: string) => n.toLowerCase()),
+        ...plan.category_structure.flatMap((c: any) => c.channels.map((n: string) => n.toLowerCase())),
+        ...plan.category_structure.map((c: any) => c.name.toLowerCase()),
+      ]);
+      const planRoleNames = new Set(plan.roles.map((r: any) => r.name.toLowerCase()));
+      const channelsToDelete = data.channels
+        .filter((c: any) => !c.managed && !planNames.has(c.name.toLowerCase()))
+        .map((c: any) => `#${c.name}`);
+      const rolesToDelete = data.roles
+        .filter((r: any) => !r.managed && r.name !== "@everyone" && !planRoleNames.has(r.name.toLowerCase()))
+        .map((r: any) => r.name);
+      setDeletePreview({ channels: channelsToDelete, roles: rolesToDelete });
+    } catch { setDeletePreview(null); }
+    setPreviewLoading(false);
+  }, [guildId]);
 
   const handleExecute = async (plan: ServerPlan) => {
     setConfirmPlan(null);
@@ -331,7 +361,7 @@ export default function GuildDashboard() {
               ) : msg.plan ? (
                 <PlanCard
                   plan={msg.plan}
-                  onApply={() => setConfirmPlan(msg.plan!)}
+                  onApply={() => handleApply(msg.plan!)}
                   onSave={() => handleSaveVersion(msg.plan!)}
                   onDiscard={() => handleClearPlan(msg.plan)}
                   botMissing={botMissing}
@@ -423,26 +453,39 @@ export default function GuildDashboard() {
 
       {/* Confirm dialog */}
       <Dialog open={!!confirmPlan} onOpenChange={(o) => { if (!o) setConfirmPlan(null); }}>
-        <DialogContent className="bg-zinc-950 border-zinc-800 max-w-[92vw] sm:max-w-md rounded-xl">
-          <DialogHeader>
-            <DialogTitle className="text-white text-sm">Apply to {guild.name}?</DialogTitle>
-            <DialogDescription className="text-zinc-400 text-xs">
-              Creates/updates roles and channels. Removes anything not in the plan.
-            </DialogDescription>
-          </DialogHeader>
-          <div className="bg-zinc-900 rounded-lg p-3 space-y-1.5 text-sm">
-            {[
-              ["Roles", confirmPlan?.roles.length],
-              ["Text channels", confirmPlan?.channels.text.length],
-              ["Voice channels", confirmPlan?.channels.voice.length],
-              ["Categories", confirmPlan?.category_structure.length],
-            ].map(([label, count]) => (
-              <div key={label as string} className="flex justify-between text-zinc-400">
-                <span>{label as string}</span>
-                <span className="text-white font-bold">{count as number}</span>
-              </div>
-            ))}
-          </div>
+          <DialogContent className="bg-zinc-950 border-zinc-800 max-w-[92vw] sm:max-w-md rounded-xl">
+            <DialogHeader>
+              <DialogTitle className="text-white text-sm">Apply to {guild.name}?</DialogTitle>
+              <DialogDescription className="text-zinc-400 text-xs">
+                Creates/updates roles and channels. Removes anything not in the plan.
+              </DialogDescription>
+            </DialogHeader>
+            <div className="bg-zinc-900 rounded-lg p-3 space-y-1.5 text-sm">
+              {[
+                ["Roles", confirmPlan?.roles.length],
+                ["Text channels", confirmPlan?.channels.text.length],
+                ["Voice channels", confirmPlan?.channels.voice.length],
+                ["Categories", confirmPlan?.category_structure.length],
+              ].map(([label, count]) => (
+                <div key={label as string} className="flex justify-between text-zinc-400">
+                  <span>{label as string}</span>
+                  <span className="text-white font-bold">{count as number}</span>
+                </div>
+              ))}
+              {(deletePreview?.channels.length || deletePreview?.roles.length) ? (
+                <div className="border-t border-zinc-800 pt-2 mt-2">
+                  <p className="text-amber-400 text-xs font-medium mb-1">Will be removed:</p>
+                  {deletePreview!.channels.length > 0 && (
+                    <p className="text-red-400 text-xs">{deletePreview!.channels.length} channel(s): {deletePreview!.channels.join(", ")}</p>
+                  )}
+                  {deletePreview!.roles.length > 0 && (
+                    <p className="text-red-400 text-xs">{deletePreview!.roles.length} role(s): {deletePreview!.roles.join(", ")}</p>
+                  )}
+                </div>
+              ) : previewLoading ? (
+                <p className="text-zinc-500 text-xs animate-pulse">Checking current server state...</p>
+              ) : null}
+            </div>
           <DialogFooter className="gap-2">
             {botMissing && <p className="text-xs text-amber-400 text-center w-full">Invite bot first</p>}
             <Button variant="ghost" onClick={() => setConfirmPlan(null)} className="text-zinc-400 text-xs">Cancel</Button>

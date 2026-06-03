@@ -62,7 +62,7 @@ const SYSTEM_GENERATE = `You are a Discord server structure generator. Return ON
 === ROLE RULES ===
 - @everyone must ALWAYS be the first role in the roles array.
 - @everyone permissions must be BASIC only: VIEW_CHANNEL, SEND_MESSAGES, ADD_REACTIONS, READ_MESSAGE_HISTORY, CONNECT, SPEAK, USE_VAD. Never give @everyone ADMINISTRATOR or moderation perms.
-- Total roles must be between 3 and 8 (including @everyone).
+- Total roles: 2-8 normally, but follow user's explicit request. Include @everyone.
 - Each role name must be unique. No duplicate names.
 - Role names: Title Case with spaces (e.g. "Staff", "Tournament Organizer").
 - One role should have ADMINISTRATOR for server admins.
@@ -76,9 +76,9 @@ const SYSTEM_GENERATE = `You are a Discord server structure generator. Return ON
 - All lowercase letters only. No uppercase, no spaces.
 - Words separated by hyphens: "looking-for-group", "general-chat", "code-reviews".
 - No underscores. No special characters except hyphens.
-- No numbers unless part of a game name (e.g. "minecraft-chat", "valorant-lfg").
+- Numbers are allowed (e.g. "hi1", "hi2", "channel-1", "room-42").
 - Max 30 characters per channel name.
-- Must be 4-10 text channels total.
+- Text channels: 2-10 normally, but follow the user's explicit request. Output [] if user asks for 0. Output all names if user asks for many.
 - Channels should cover different purposes: general chat, announcements, introductions, topic-specific.
 - NSFW channels are allowed. Include them in nsfw_channels array. NSFW channels should have "nsfw" prefix (e.g. "nsfw-general", "nsfw-media") or be clearly adult-themed.
 - Only text channels can be NSFW. Voice channels cannot be NSFW.
@@ -87,14 +87,14 @@ const SYSTEM_GENERATE = `You are a Discord server structure generator. Return ON
 === VOICE CHANNEL NAMING RULES ===
 - Title Case: capitalize first letter of each word (e.g. "General", "Competitive Gaming", "Music Lounge").
 - Spaces between words. No hyphens. No underscores.
-- Must be 2-5 voice channels total.
+- Voice channels: 1-5 normally, but follow the user's explicit request. Output [] if user asks for 0.
 - Voice channels should serve different use cases: general hangout, gaming, music/afk.
 
 === CATEGORY RULES ===
  - Category names are Title Case (e.g. "Information", "Social", "Voice Channels", "Competitive").
 - Every channel (text and voice) must belong to exactly ONE category.
 - A channel cannot appear in more than one category.
-- Each category must have at least one channel.
+- Each category must have at least one channel, unless user asked to delete all.
 - Create logical groupings: put information channels together, social channels together, voice channels together.
 
 === PERMISSION RULES ===
@@ -233,7 +233,7 @@ Step 4: Did the user say something truly empty like "idk", "not sure", "I don't 
 - categories: Title Case (e.g. "Information", "Voice Channels")
 - Always include @everyone role first
 - @everyone gets basic perms only: VIEW_CHANNEL, SEND_MESSAGES, ADD_REACTIONS, READ_MESSAGE_HISTORY, CONNECT, SPEAK
-- Normal range: 2-8 roles, 2-10 text channels, 1-5 voice channels. BUT these are soft guidelines — follow the user's explicit request. If user asks for 0 channels, output [].
+- Normal range: 2-8 roles, 2-10 text channels, 1-5 voice channels. BUT these are soft guidelines — follow the user's explicit request. If user asks for 0 channels, output []. If user asks for 50 channels, output all 50 names in the array.
 - Every channel belongs to exactly one category
 - CRITICAL: The "channels" array inside each category entry MUST reference channel names that exist in channels.text or channels.voice. A channel must appear in BOTH its category AND the top-level text/voice array.
 - Never duplicate channel names across categories
@@ -367,6 +367,10 @@ class GroqProvider implements AIProvider {
     r = r.replace(/,\s*$/, "");
     // Remove backticks
     r = r.replace(/`/g, "");
+    // Fix missing commas between quoted strings in arrays: "x" "y" → "x","y"
+    r = r.replace(/"\s+"(?=[^:,\s])/g, '","');
+    // Fix missing commas between string and next array element: "x" "y"
+    r = r.replace(/("\s*)\n?\s*(")/g, '$1,$2');
     return r;
   }
 
@@ -378,7 +382,7 @@ class GroqProvider implements AIProvider {
         { role: "user", content: `Generate a Discord server for: ${prompt}. Return ONLY the JSON object.` },
       ],
       temperature: 0,
-      max_tokens: 2000,
+      max_tokens: 4096,
     };
 
     const res = await fetch(`${GROQ_API_URL}/chat/completions`, {
@@ -427,7 +431,7 @@ class GroqProvider implements AIProvider {
         ...messages,
       ],
       temperature: 0,
-      max_tokens: 2000,
+      max_tokens: 4096,
     };
 
     const res = await fetch(`${GROQ_API_URL}/chat/completions`, {
