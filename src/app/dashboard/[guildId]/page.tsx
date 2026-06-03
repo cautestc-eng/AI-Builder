@@ -371,7 +371,7 @@ export default function GuildDashboard() {
 
   if (pageLoading) {
     return (
-      <div className="min-h-screen bg-black flex items-center justify-center">
+      <div className="min-h-dvh bg-black flex items-center justify-center">
         <div className="animate-spin w-8 h-8 border-2 border-blue-500 border-t-transparent rounded-full" />
       </div>
     );
@@ -379,14 +379,14 @@ export default function GuildDashboard() {
 
   if (!guild) {
     return (
-      <div className="min-h-screen bg-black flex items-center justify-center">
+      <div className="min-h-dvh bg-black flex items-center justify-center">
         <p className="text-zinc-500">Could not load server data</p>
       </div>
     );
   }
 
   return (
-    <div className="h-screen bg-black flex flex-col overflow-hidden relative">
+    <div className="h-dvh bg-black flex flex-col overflow-hidden relative max-w-full">
       <div className="flex items-center justify-between px-4 py-3 border-b border-zinc-800 shrink-0">
         <div className="flex items-center gap-3">
           <Button variant="ghost" size="icon" className="w-8 h-8" onClick={() => router.push("/dashboard")}>
@@ -715,7 +715,7 @@ export default function GuildDashboard() {
             )}
           </div>
 
-          <div className="border-t border-zinc-800/50 px-4 py-3 shrink-0">
+          <div className="border-t border-zinc-800/50 px-3 sm:px-4 py-3 shrink-0">
             {chatHistory.length > 0 && conversation.length === 0 && !plan && (
               <div className="mb-2">
                 <p className="text-[10px] text-zinc-600 uppercase tracking-wider mb-1.5">Recent</p>
