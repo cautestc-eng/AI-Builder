@@ -147,7 +147,7 @@ export default function GuildDashboard() {
       const res = await fetch("/api/ai/generate", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ messages: apiMessages, mode: "build", model: "llama-70b" }),
+        body: JSON.stringify({ messages: apiMessages, mode: "build", model: "deepseek-chat" }),
       });
       const data = await res.json();
       if (!res.ok) {

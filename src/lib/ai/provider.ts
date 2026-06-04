@@ -330,8 +330,8 @@ class OpenAICompatibleProvider implements AIProvider {
   private modelId: string;
   private baseUrl: string;
 
-  constructor(modelKey: string = "llama-70b") {
-    const model = MODELS[modelKey as ModelKey] || MODELS["llama-70b"];
+  constructor(modelKey: string = "deepseek-chat") {
+    const model = MODELS[modelKey as ModelKey] || MODELS["deepseek-chat"];
     this.modelId = model.id;
     if (model.provider === "deepseek") {
       this.apiKey = process.env.DEEPSEEK_API_KEY || "";
@@ -548,9 +548,9 @@ class OpenAICompatibleProvider implements AIProvider {
 }
 
 export function createAIProvider(modelKey?: string): AIProvider {
-  const key = modelKey || "llama-70b";
+  const key = modelKey || "deepseek-chat";
   const model = MODELS[key as ModelKey];
-  if (!model) return new OpenAICompatibleProvider("llama-70b");
+  if (!model) return new OpenAICompatibleProvider("deepseek-chat");
   if (model.provider === "deepseek") {
     if (!process.env.DEEPSEEK_API_KEY) throw new Error("DeepSeek selected but DEEPSEEK_API_KEY not set");
     return new OpenAICompatibleProvider(key);
