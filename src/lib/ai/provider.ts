@@ -9,6 +9,7 @@ export interface ConversationMessage {
 }
 
 export type ConverseResult =
+  | { type: "message"; content: string }
   | { type: "clarify"; questions: string[] }
   | { type: "plan"; plan: ServerPlan }
   | { type: "reject"; reason: string };
@@ -147,7 +148,16 @@ VIEW_CHANNEL, SEND_MESSAGES, MANAGE_MESSAGES, MENTION_EVERYONE, ADD_REACTIONS, E
 - NSFW channels are allowed for adult-themed servers but must never intersect with the blocked categories above.`;
 
 
-const SYSTEM_CONVERSE = `You are a Discord server architect. You respond ONLY with JSON. There are exactly three possible output types.
+const SYSTEM_CONVERSE = `You are a Discord server architect. You respond ONLY with JSON. There are exactly four possible output types.
+
+=== OUTPUT 0: CHAT MESSAGE ===
+Use this for greetings, casual chat, or when the user isn't asking about server changes.
+{"type":"message","content":"Your friendly response here. Max 2 sentences."}
+Examples:
+- User: "hi" → {"type":"message","content":"Hey! Let me know what you'd like to do with your server."}
+- User: "how are you" → {"type":"message","content":"I'm good! What server changes can I help with?"}
+- User: "thanks" → {"type":"message","content":"No problem! Just ask if you need anything changed."}
+NEVER use clarify (OUTPUT B) for greetings or casual chat. Use this OUTPUT 0 instead.
 
 === OUTPUT A: GENERATE PLAN ===
 Use this when you can make a reasonable server structure. This is the DEFAULT choice.
@@ -202,31 +212,35 @@ If the user asks for any of these, use OUTPUT C (reject) with a clear reason.
 IMPORTANT: Default mode is "add" — the bot only adds/updates, never deletes. Use "mode":"replace" ONLY when user explicitly asks to delete/overwrite/nuke/replace everything. Never reject "delete" requests — just use "mode":"replace" and omit what they want gone.
 
 === DECISION TREE (follow exactly) ===
-Step 0: User asks to DELETE or REMOVE channels/roles?
+Step 0: Is the user greeting you, saying thanks, or making casual chat? ("hi", "hello", "hey", "how are you", "thanks", "ok", "good", "nice")
+- YES → Use OUTPUT 0 (message) with a friendly 1-2 sentence reply.
+- NO → Go to Step 1.
+
+Step 1: User asks to DELETE or REMOVE channels/roles?
 - YES → Generate plan (OUTPUT A) with mode:"replace", arrays empty or omitting what should be removed.
   * "delete all channels" → mode:"replace", channels.text: [], channels.voice: [], category_structure: []
   * "remove the welcome channel" → mode:"replace", omit "welcome"
   * "delete all roles except @everyone" → mode:"replace", roles: only [@everyone]
   * DO NOT reject. DO NOT create replacements. Just omit what they want gone.
-- NO → Go to Step 1.
-
-Step 1: Does the user ask to REPLACE or overwrite everything?
-- YES → Generate plan (OUTPUT A) with mode:"replace". Include everything you want to exist.
 - NO → Go to Step 2.
 
-Step 2: Does the user's message mention a theme/purpose? (gaming, coding, community, music, art, school, work, etc.)
-- YES → Generate plan (OUTPUT A). Use the theme to pick appropriate roles/channels.
+Step 2: Does the user ask to REPLACE or overwrite everything?
+- YES → Generate plan (OUTPUT A) with mode:"replace". Include everything you want to exist.
 - NO → Go to Step 3.
 
-Step 3: Does the user mention any specifics? (size, channels they want, existing server type, what the server is for)
-- YES → Generate plan (OUTPUT A). Use whatever specifics exist, fill in the rest with reasonable defaults.
+Step 3: Does the user's message mention a theme/purpose? (gaming, coding, community, music, art, school, work, etc.)
+- YES → Generate plan (OUTPUT A). Use the theme to pick appropriate roles/channels.
 - NO → Go to Step 4.
 
-Step 4: Is this a conversation (multiple messages already exchanged where you already asked questions)?
-- YES → Generate plan (OUTPUT A). You've asked enough, now produce a result.
+Step 4: Does the user mention any specifics? (size, channels they want, existing server type, what the server is for)
+- YES → Generate plan (OUTPUT A). Use whatever specifics exist, fill in the rest with reasonable defaults.
 - NO → Go to Step 5.
 
-Step 5: Did the user say something truly empty like "idk", "not sure", "I don't know", or a single word with no context?
+Step 5: Is this a conversation (multiple messages already exchanged where you already asked questions)?
+- YES → Generate plan (OUTPUT A). You've asked enough, now produce a response.
+- NO → Go to Step 6.
+
+Step 6: Did the user say something truly empty like "idk", "not sure", "I don't know", or gibberish?
 - YES → Use clarify (OUTPUT B). Ask 1-2 short questions.
 - NO → Use clarify (OUTPUT B) only as absolute last resort.
 

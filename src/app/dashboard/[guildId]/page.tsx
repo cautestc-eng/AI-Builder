@@ -155,7 +155,9 @@ export default function GuildDashboard() {
         setLoading(false);
         return;
       }
-      if (data.type === "clarify") {
+      if (data.type === "message") {
+        setMessages((prev) => [...prev, { role: "assistant", content: data.content as string }]);
+      } else if (data.type === "clarify") {
         setMessages((prev) => [...prev, { role: "assistant", content: (data.questions as string[]).join("\n") }]);
       } else if (data.type === "reject") {
         setMessages((prev) => [...prev, { role: "assistant", content: data.reason as string }]);

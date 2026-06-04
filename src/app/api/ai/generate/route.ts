@@ -45,6 +45,10 @@ export async function POST(req: NextRequest) {
 
       const result = await provider.converse(messages as ConversationMessage[]);
 
+      if (result.type === "message") {
+        return NextResponse.json({ type: "message", content: result.content });
+      }
+
       if (result.type === "clarify") {
         return NextResponse.json({ type: "clarify", questions: result.questions });
       }
