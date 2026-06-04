@@ -33,6 +33,7 @@ export interface ServerPlan {
   nsfw_channels?: string[];
   category_structure: ServerCategory[];
   guild_settings?: GuildSettings;
+  mode?: "add" | "replace";
 }
 
 export interface ServerRole {

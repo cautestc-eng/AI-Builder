@@ -1,6 +1,7 @@
 import { ServerPlan } from "@/types";
 
-const GROQ_API_URL = "https://api.groq.com/openai/v1";
+const OPENAI_API_URL = "https://api.groq.com/openai/v1";
+const DEEPSEEK_API_URL = "https://api.deepseek.com/v1";
 
 export interface ConversationMessage {
   role: "system" | "user" | "assistant";
@@ -16,6 +17,7 @@ const MODELS = {
   "llama-70b": { id: "llama-3.3-70b-versatile", provider: "groq" },
   "llama-8b": { id: "llama-3.1-8b-instant", provider: "groq" },
   "mixtral": { id: "mixtral-8x7b-32768", provider: "groq" },
+  "deepseek-chat": { id: "deepseek-chat", provider: "deepseek" },
 } as const;
 
 export type ModelKey = keyof typeof MODELS;
@@ -149,7 +151,12 @@ const SYSTEM_CONVERSE = `You are a Discord server architect. You respond ONLY wi
 
 === OUTPUT A: GENERATE PLAN ===
 Use this when you can make a reasonable server structure. This is the DEFAULT choice.
-{"roles":[{"name":"@everyone","permissions":["VIEW_CHANNEL","SEND_MESSAGES","ADD_REACTIONS","READ_MESSAGE_HISTORY","CONNECT","SPEAK"],"color":"#99AAB5"},{"name":"Admin","permissions":["ADMINISTRATOR"],"color":"#FF0000"}],"channels":{"text":["general","announcements"],"voice":["General"]},"nsfw_channels":[],"category_structure":[{"name":"General","channels":["general","announcements"]}],"guild_settings":{"verification_level":"low","default_message_notifications":"only_mentions","explicit_content_filter":"members_without_roles"}}
+{"mode":"add","roles":[{"name":"@everyone","permissions":["VIEW_CHANNEL","SEND_MESSAGES","ADD_REACTIONS","READ_MESSAGE_HISTORY","CONNECT","SPEAK"],"color":"#99AAB5"},{"name":"Admin","permissions":["ADMINISTRATOR"],"color":"#FF0000"}],"channels":{"text":["general","announcements"],"voice":["General"]},"nsfw_channels":[],"category_structure":[{"name":"General","channels":["general","announcements"]}],"guild_settings":{"verification_level":"low","default_message_notifications":"only_mentions","explicit_content_filter":"members_without_roles"}}
+
+MODE RULES:
+- "mode":"add" (DEFAULT): The bot ONLY adds new channels/roles and updates existing ones. Never deletes anything. Use this for normal requests like "add a general channel", "create a moderator role", "make a gaming category".
+- "mode":"replace": The bot replaces the entire server structure — creates everything in the plan AND DELETES any existing channels/roles not in the plan. Use this ONLY when the user explicitly says "replace", "overwrite", "nuke", "start fresh", or "delete everything and make new".
+- NEVER use "mode":"replace" unless the user explicitly asks to delete/remove/replace/nuke things. If unsure, use "mode":"add".
 
 You can also include guild_settings to configure the server:
 - "verification_level": "none" | "low" | "medium" | "high" | "very_high"
@@ -162,10 +169,10 @@ All guild_settings fields are optional. Omit if not specified.
 
 === DELETE EXAMPLES ===
 User: "delete all text channels"
-Plan: {"roles":[{"name":"@everyone","permissions":["VIEW_CHANNEL","SEND_MESSAGES","ADD_REACTIONS","READ_MESSAGE_HISTORY","CONNECT","SPEAK"],"color":"#99AAB5"},{"name":"Admin","permissions":["ADMINISTRATOR"],"color":"#FF0000"}],"channels":{"text":[],"voice":["General"]},"nsfw_channels":[],"category_structure":[],"guild_settings":{"verification_level":"low"}}
+Plan: {"mode":"replace","roles":[{"name":"@everyone","permissions":["VIEW_CHANNEL","SEND_MESSAGES","ADD_REACTIONS","READ_MESSAGE_HISTORY","CONNECT","SPEAK"],"color":"#99AAB5"},{"name":"Admin","permissions":["ADMINISTRATOR"],"color":"#FF0000"}],"channels":{"text":[],"voice":["General"]},"nsfw_channels":[],"category_structure":[],"guild_settings":{"verification_level":"low"}}
 
 User: "delete all channels and roles"
-Plan: {"roles":[{"name":"@everyone","permissions":["VIEW_CHANNEL","SEND_MESSAGES","ADD_REACTIONS","READ_MESSAGE_HISTORY","CONNECT","SPEAK"],"color":"#99AAB5"}],"channels":{"text":[],"voice":[]},"nsfw_channels":[],"category_structure":[]}
+Plan: {"mode":"replace","roles":[{"name":"@everyone","permissions":["VIEW_CHANNEL","SEND_MESSAGES","ADD_REACTIONS","READ_MESSAGE_HISTORY","CONNECT","SPEAK"],"color":"#99AAB5"}],"channels":{"text":[],"voice":[]},"nsfw_channels":[],"category_structure":[]}
 
 === OUTPUT B: ASK CLARIFY QUESTIONS ===
 Use this ONLY when all of these are true: user gave zero specifics (e.g. "make a server" with nothing else), no theme, no purpose, no size, no preferences. This is the RARE exception.
@@ -192,30 +199,34 @@ If the user asks for any of these, use OUTPUT C (reject) with a clear reason.
 - Create, delete, or modify roles and permissions
 - Change server structure, reorganize channels, add/remove anything
 - Set verification level, notification settings, content filter, AFK timeout, system channel, AFK channel
-IMPORTANT: Your plan defines the FINAL DESIRED STATE of the server. Any channels, roles, or categories NOT in your plan WILL BE DELETED by the bot. Empty arrays (channels.text: [], channels.voice: []) mean the bot will delete ALL existing channels. Never reject "delete" requests — just omit what should be removed from the plan.
+IMPORTANT: Default mode is "add" — the bot only adds/updates, never deletes. Use "mode":"replace" ONLY when user explicitly asks to delete/overwrite/nuke/replace everything. Never reject "delete" requests — just use "mode":"replace" and omit what they want gone.
 
 === DECISION TREE (follow exactly) ===
 Step 0: User asks to DELETE or REMOVE channels/roles?
-- YES → Generate plan (OUTPUT A) with those arrays empty or omitting what should be removed.
-  * "delete all channels" → channels.text: [], channels.voice: [], category_structure: []
-  * "remove the welcome channel" → omit "welcome" from channels.text and all category_structure channels arrays
-  * "delete all roles except @everyone" → roles: only [@everyone]
+- YES → Generate plan (OUTPUT A) with mode:"replace", arrays empty or omitting what should be removed.
+  * "delete all channels" → mode:"replace", channels.text: [], channels.voice: [], category_structure: []
+  * "remove the welcome channel" → mode:"replace", omit "welcome"
+  * "delete all roles except @everyone" → mode:"replace", roles: only [@everyone]
   * DO NOT reject. DO NOT create replacements. Just omit what they want gone.
 - NO → Go to Step 1.
 
-Step 1: Does the user's message mention a theme/purpose? (gaming, coding, community, music, art, school, work, etc.)
-- YES → Generate plan (OUTPUT A). Use the theme to pick appropriate roles/channels.
+Step 1: Does the user ask to REPLACE or overwrite everything?
+- YES → Generate plan (OUTPUT A) with mode:"replace". Include everything you want to exist.
 - NO → Go to Step 2.
 
-Step 2: Does the user mention any specifics? (size, channels they want, existing server type, what the server is for)
-- YES → Generate plan (OUTPUT A). Use whatever specifics exist, fill in the rest with reasonable defaults.
+Step 2: Does the user's message mention a theme/purpose? (gaming, coding, community, music, art, school, work, etc.)
+- YES → Generate plan (OUTPUT A). Use the theme to pick appropriate roles/channels.
 - NO → Go to Step 3.
 
-Step 3: Is this a conversation (multiple messages already exchanged where you already asked questions)?
-- YES → Generate plan (OUTPUT A). You've asked enough, now produce a result.
+Step 3: Does the user mention any specifics? (size, channels they want, existing server type, what the server is for)
+- YES → Generate plan (OUTPUT A). Use whatever specifics exist, fill in the rest with reasonable defaults.
 - NO → Go to Step 4.
 
-Step 4: Did the user say something truly empty like "idk", "not sure", "I don't know", or a single word with no context?
+Step 4: Is this a conversation (multiple messages already exchanged where you already asked questions)?
+- YES → Generate plan (OUTPUT A). You've asked enough, now produce a result.
+- NO → Go to Step 5.
+
+Step 5: Did the user say something truly empty like "idk", "not sure", "I don't know", or a single word with no context?
 - YES → Use clarify (OUTPUT B). Ask 1-2 short questions.
 - NO → Use clarify (OUTPUT B) only as absolute last resort.
 
@@ -228,6 +239,8 @@ Step 4: Did the user say something truly empty like "idk", "not sure", "I don't 
 - Invalid examples: "How many text channels?" "What roles?" "What category names?"
 
 === PLAN RULES ===
+- Always set "mode" in every output. Default is "add". Use "replace" only for delete/overwrite requests.
+- Include the channels from previous responses unless the user asks to change/remove them. If user says "add a general channel", keep all existing channels AND add general.
 - text channels: lowercase-kebab (e.g. "general", "looking-for-group")
 - voice channels: Title Case (e.g. "General", "Competitive Gaming")
 - categories: Title Case (e.g. "Information", "Voice Channels")
@@ -298,13 +311,21 @@ const SYSTEM_PLAN = `You are a Discord server consultant discussing ideas with a
 - Never discuss or suggest hate speech, violence, illegal activity, harassment, politics, nuclear weapons, or extremist content.
 - If the user asks about harmful content, politely decline and redirect to appropriate topics.`;
 
-class GroqProvider implements AIProvider {
+class OpenAICompatibleProvider implements AIProvider {
   private apiKey: string;
   private modelId: string;
+  private baseUrl: string;
 
   constructor(modelKey: string = "llama-70b") {
-    this.apiKey = process.env.GROQ_API_KEY || "";
-    this.modelId = MODELS[modelKey as ModelKey]?.id || MODELS["llama-70b"].id;
+    const model = MODELS[modelKey as ModelKey] || MODELS["llama-70b"];
+    this.modelId = model.id;
+    if (model.provider === "deepseek") {
+      this.apiKey = process.env.DEEPSEEK_API_KEY || "";
+      this.baseUrl = DEEPSEEK_API_URL;
+    } else {
+      this.apiKey = process.env.GROQ_API_KEY || "";
+      this.baseUrl = OPENAI_API_URL;
+    }
   }
 
   private extractFirstJson(raw: string): string {
@@ -385,7 +406,7 @@ class GroqProvider implements AIProvider {
       max_tokens: 4096,
     };
 
-    const res = await fetch(`${GROQ_API_URL}/chat/completions`, {
+    const res = await fetch(`${this.baseUrl}/chat/completions`, {
       method: "POST",
       headers: {
         "Authorization": `Bearer ${this.apiKey}`,
@@ -417,6 +438,7 @@ class GroqProvider implements AIProvider {
         nsfw_channels: parsed.nsfw_channels || [],
         category_structure: parsed.category_structure || [],
         guild_settings: parsed.guild_settings || undefined,
+        mode: parsed.mode || "add",
       };
     } catch (e: any) {
       throw new Error(`Failed to parse AI JSON: ${e.message}. Raw: ${jsonStr.slice(0, 200)}`);
@@ -434,7 +456,7 @@ class GroqProvider implements AIProvider {
       max_tokens: 4096,
     };
 
-    const res = await fetch(`${GROQ_API_URL}/chat/completions`, {
+    const res = await fetch(`${this.baseUrl}/chat/completions`, {
       method: "POST",
       headers: {
         "Authorization": `Bearer ${this.apiKey}`,
@@ -476,6 +498,7 @@ class GroqProvider implements AIProvider {
         nsfw_channels: parsed.nsfw_channels || [],
         category_structure: parsed.category_structure || [],
         guild_settings: parsed.guild_settings || undefined,
+        mode: parsed.mode || "add",
       },
     };
   }
@@ -491,7 +514,7 @@ class GroqProvider implements AIProvider {
       max_tokens: 400,
     };
 
-    const res = await fetch(`${GROQ_API_URL}/chat/completions`, {
+    const res = await fetch(`${this.baseUrl}/chat/completions`, {
       method: "POST",
       headers: {
         "Authorization": `Bearer ${this.apiKey}`,
@@ -511,10 +534,17 @@ class GroqProvider implements AIProvider {
 }
 
 export function createAIProvider(modelKey?: string): AIProvider {
-  if (process.env.GROQ_API_KEY) {
-    return new GroqProvider(modelKey);
+  const key = modelKey || "llama-70b";
+  const model = MODELS[key as ModelKey];
+  if (!model) return new OpenAICompatibleProvider("llama-70b");
+  if (model.provider === "deepseek") {
+    if (!process.env.DEEPSEEK_API_KEY) throw new Error("DeepSeek selected but DEEPSEEK_API_KEY not set");
+    return new OpenAICompatibleProvider(key);
   }
-  throw new Error("No AI provider configured. Set GROQ_API_KEY");
+  if (process.env.GROQ_API_KEY) {
+    return new OpenAICompatibleProvider(key);
+  }
+  throw new Error("No AI provider configured. Set GROQ_API_KEY or DEEPSEEK_API_KEY");
 }
 
 const TEMPLATES: Record<string, string> = {

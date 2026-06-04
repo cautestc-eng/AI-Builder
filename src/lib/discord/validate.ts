@@ -174,5 +174,6 @@ export function sanitizePlan(plan: ServerPlan): ServerPlan {
       name: c.name.trim(),
       channels: c.channels.map((ch) => ch.trim()).filter(Boolean),
     })),
+    mode: plan.mode || "add",
   };
 }
