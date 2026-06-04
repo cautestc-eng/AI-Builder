@@ -431,7 +431,7 @@ class OpenAICompatibleProvider implements AIProvider {
 
     if (!res.ok) {
       const text = await res.text();
-      throw new Error(`AI API error: ${res.status} ${text}`);
+      throw new Error(`AI API error (${this.baseUrl}): ${res.status} ${text}`);
     }
 
     const data = await res.json();
@@ -481,7 +481,7 @@ class OpenAICompatibleProvider implements AIProvider {
 
     if (!res.ok) {
       const text = await res.text();
-      throw new Error(`AI API error: ${res.status} ${text}`);
+      throw new Error(`AI API error (${this.baseUrl}): ${res.status} ${text}`);
     }
 
     const data = await res.json();
@@ -539,7 +539,7 @@ class OpenAICompatibleProvider implements AIProvider {
 
     if (!res.ok) {
       const text = await res.text();
-      throw new Error(`AI API error: ${res.status} ${text}`);
+      throw new Error(`AI API error (${this.baseUrl}): ${res.status} ${text}`);
     }
 
     const data = await res.json();
