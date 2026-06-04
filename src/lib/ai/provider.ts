@@ -431,7 +431,7 @@ class OpenAICompatibleProvider implements AIProvider {
 
     if (!res.ok) {
       const text = await res.text();
-      throw new Error(`Groq API error: ${res.status} ${text}`);
+      throw new Error(`AI API error: ${res.status} ${text}`);
     }
 
     const data = await res.json();
@@ -481,7 +481,7 @@ class OpenAICompatibleProvider implements AIProvider {
 
     if (!res.ok) {
       const text = await res.text();
-      throw new Error(`Groq API error: ${res.status} ${text}`);
+      throw new Error(`AI API error: ${res.status} ${text}`);
     }
 
     const data = await res.json();
@@ -539,7 +539,7 @@ class OpenAICompatibleProvider implements AIProvider {
 
     if (!res.ok) {
       const text = await res.text();
-      throw new Error(`Groq API error: ${res.status} ${text}`);
+      throw new Error(`AI API error: ${res.status} ${text}`);
     }
 
     const data = await res.json();
@@ -552,13 +552,16 @@ export function createAIProvider(modelKey?: string): AIProvider {
   const model = MODELS[key as ModelKey];
   if (!model) return new OpenAICompatibleProvider("deepseek-chat");
   if (model.provider === "deepseek") {
-    if (!process.env.DEEPSEEK_API_KEY) throw new Error("DeepSeek selected but DEEPSEEK_API_KEY not set");
+    if (!process.env.DEEPSEEK_API_KEY && process.env.GROQ_API_KEY) {
+      console.warn("DEEPSEEK_API_KEY not set, falling back to Groq");
+      return new OpenAICompatibleProvider("llama-70b");
+    }
     return new OpenAICompatibleProvider(key);
   }
   if (process.env.GROQ_API_KEY) {
     return new OpenAICompatibleProvider(key);
   }
-  throw new Error("No AI provider configured. Set GROQ_API_KEY or DEEPSEEK_API_KEY");
+  throw new Error("No AI provider configured. Set DEEPSEEK_API_KEY or GROQ_API_KEY");
 }
 
 const TEMPLATES: Record<string, string> = {
