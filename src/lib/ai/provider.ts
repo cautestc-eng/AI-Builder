@@ -1,7 +1,7 @@
 import { ServerPlan } from "@/types";
 
 const OPENAI_API_URL = "https://api.groq.com/openai/v1";
-const DEEPSEEK_API_URL = "https://api.deepseek.com/v1";
+const DEEPSEEK_API_URL = "https://api.deepseek.com";
 
 export interface ConversationMessage {
   role: "system" | "user" | "assistant";
@@ -18,7 +18,7 @@ const MODELS = {
   "llama-70b": { id: "llama-3.3-70b-versatile", provider: "groq" },
   "llama-8b": { id: "llama-3.1-8b-instant", provider: "groq" },
   "mixtral": { id: "mixtral-8x7b-32768", provider: "groq" },
-  "deepseek-chat": { id: "deepseek-chat", provider: "deepseek" },
+  "deepseek-chat": { id: "deepseek-v4-flash", provider: "deepseek" },
 } as const;
 
 export type ModelKey = keyof typeof MODELS;
