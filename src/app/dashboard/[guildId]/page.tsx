@@ -64,6 +64,7 @@ export default function GuildDashboard() {
   const [showJsonImport, setShowJsonImport] = useState(false);
   const [jsonInput, setJsonInput] = useState("");
   const [jsonError, setJsonError] = useState("");
+  const [jsonExpanded, setJsonExpanded] = useState(false);
 
   function timeAgo(ts: number) {
     const s = Math.floor((Date.now() - ts) / 1000);
@@ -406,6 +407,40 @@ export default function GuildDashboard() {
       {/* Input area */}
       <div className="border-t border-zinc-800/50 px-3 py-2.5 shrink-0">
         <div className="max-w-2xl mx-auto">
+          {jsonExpanded && (
+            <div className="mb-2 p-2 bg-zinc-900/50 border border-zinc-800 rounded-lg">
+              <p className="text-[10px] text-zinc-500 uppercase tracking-wider mb-1.5">Paste JSON plan</p>
+              <textarea
+                value={jsonInput}
+                onChange={(e) => { setJsonInput(e.target.value); setJsonError(""); }}
+                placeholder='{"roles":[{"name":"@everyone","permissions":["VIEW_CHANNEL"],"color":"#99AAB5"}],"channels":{"text":["general"],"voice":["General"]},"category_structure":[{"name":"General","channels":["general"]}]}'
+                className="bg-black/50 border border-zinc-700 text-white text-xs min-h-[120px] max-h-[250px] font-mono w-full rounded px-2.5 py-2 resize-y focus:outline-none focus:border-blue-500/50"
+              />
+              {jsonError && <p className="text-red-400 text-[10px] mt-1">{jsonError}</p>}
+              <div className="flex gap-2 mt-1.5">
+                <Button onClick={() => {
+                  try {
+                    const parsed = JSON.parse(jsonInput);
+                    if (!parsed.roles || !parsed.channels || !parsed.category_structure) {
+                      setJsonError("Missing required fields: roles, channels, category_structure");
+                      return;
+                    }
+                    setMessages(prev => [...prev, { role: "assistant", content: "", plan: parsed as ServerPlan }]);
+                    setJsonExpanded(false);
+                    setJsonInput("");
+                    setJsonError("");
+                  } catch (e) {
+                    setJsonError("Invalid JSON: " + (e instanceof Error ? e.message : "parse error"));
+                  }
+                }} disabled={!jsonInput.trim()}
+                  className="bg-green-600 hover:bg-green-700 text-white h-7 text-xs px-3"
+                >Load Plan</Button>
+                <Button variant="ghost" onClick={() => { setJsonExpanded(false); setJsonError(""); }}
+                  className="text-zinc-400 h-7 text-xs px-2"
+                >Cancel</Button>
+              </div>
+            </div>
+          )}
           <div className="flex gap-2">
             <textarea
               ref={inputRef}
@@ -424,7 +459,7 @@ export default function GuildDashboard() {
             <Button onClick={handleGenerate} disabled={loading || !prompt.trim()}
               className="bg-blue-600 hover:bg-blue-700 text-white h-[44px] px-4 shrink-0 text-sm"
             >{loading ? "..." : "Send"}</Button>
-            <Button variant="outline" size="sm" onClick={() => setShowJsonImport(true)}
+            <Button variant="outline" size="sm" onClick={() => setJsonExpanded(!jsonExpanded)}
               className="text-xs h-[44px] text-zinc-400 border-zinc-700 shrink-0 px-2"
               title="Import JSON plan"
             ><Terminal className="w-4 h-4" /></Button>
@@ -511,45 +546,6 @@ export default function GuildDashboard() {
             <Button onClick={() => handleExecute(confirmPlan!)} disabled={botMissing || !confirmPlan}
               className="bg-green-600 hover:bg-green-700 text-white text-xs"
             >Apply</Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-
-      {/* JSON import dialog */}
-      <Dialog open={showJsonImport} onOpenChange={(o) => { if (!o) { setShowJsonImport(false); setJsonError(""); } }}>
-        <DialogContent className="bg-zinc-950 border-zinc-800 max-w-[92vw] sm:max-w-lg rounded-xl">
-          <DialogHeader>
-            <DialogTitle className="text-white text-sm">Import JSON Plan</DialogTitle>
-            <DialogDescription className="text-zinc-400 text-xs">
-              Paste a valid server plan JSON. The bot will execute it directly.
-            </DialogDescription>
-          </DialogHeader>
-          <textarea
-            value={jsonInput}
-            onChange={(e) => { setJsonInput(e.target.value); setJsonError(""); }}
-            placeholder='{"roles":[{"name":"@everyone","permissions":["VIEW_CHANNEL","SEND_MESSAGES"],"color":"#99AAB5"}],"channels":{"text":["general"],"voice":["General"]},"category_structure":[{"name":"General","channels":["general"]}]}'
-            className="bg-zinc-900 border-zinc-700 text-white text-xs min-h-[200px] max-h-[400px] font-mono w-full rounded-lg px-3 py-2.5 resize-y focus:outline-none focus:border-blue-500/50"
-          />
-          {jsonError && <p className="text-red-400 text-xs">{jsonError}</p>}
-          <DialogFooter className="gap-2">
-            <Button variant="ghost" onClick={() => { setShowJsonImport(false); setJsonError(""); }} className="text-zinc-400 text-xs">Cancel</Button>
-            <Button onClick={() => {
-              try {
-                const parsed = JSON.parse(jsonInput);
-                if (!parsed.roles || !parsed.channels || !parsed.category_structure) {
-                  setJsonError("Missing required fields: roles, channels, category_structure");
-                  return;
-                }
-                setMessages(prev => [...prev, { role: "assistant", content: "", plan: parsed as ServerPlan }]);
-                setShowJsonImport(false);
-                setJsonInput("");
-                setJsonError("");
-              } catch (e) {
-                setJsonError("Invalid JSON: " + (e instanceof Error ? e.message : "parse error"));
-              }
-            }} disabled={!jsonInput.trim()}
-              className="bg-green-600 hover:bg-green-700 text-white text-xs"
-            >Load Plan</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
