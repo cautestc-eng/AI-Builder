@@ -136,9 +136,12 @@ export async function POST(req: NextRequest) {
     const sanitized = sanitizePlan(plan_json);
     const supabase = createAdminClient();
 
+    // Don't overwrite existing guild name — Discord API may not be reachable here
+    const { data: existingGuild } = await supabase
+      .from("guilds").select("name").eq("id", guild_id).maybeSingle();
     await supabase.from("guilds").upsert({
       id: guild_id,
-      name: guild_id,
+      name: existingGuild?.name || guild_id,
       owner_id: user.id,
       bot_installed: true,
     }, { onConflict: "id" }).maybeSingle();
