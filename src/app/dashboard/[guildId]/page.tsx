@@ -202,7 +202,9 @@ export default function GuildDashboard() {
     try {
       const res = await fetch(`/api/guilds/${guildId}/channels`);
       const data = await res.json();
+      // Use channel_details names if available, else fall back to old format
       const planNames = new Set([
+        ...(plan.channel_details || []).map((c: any) => c.name.toLowerCase()),
         ...plan.channels.text.map((n: string) => n.toLowerCase()),
         ...plan.channels.voice.map((n: string) => n.toLowerCase()),
         ...plan.category_structure.flatMap((c: any) => c.channels.map((n: string) => n.toLowerCase())),
@@ -465,8 +467,8 @@ export default function GuildDashboard() {
             <div className="bg-zinc-900 rounded-lg p-3 space-y-1.5 text-sm">
               {[
                 ["Roles", confirmPlan?.roles.length],
-                ["Text channels", confirmPlan?.channels.text.length],
-                ["Voice channels", confirmPlan?.channels.voice.length],
+                ["Text channels", confirmPlan?.channel_details?.filter(c => c.type !== "voice").length ?? confirmPlan?.channels.text.length],
+                ["Voice channels", confirmPlan?.channel_details?.filter(c => c.type === "voice").length ?? confirmPlan?.channels.voice.length],
                 ["Categories", confirmPlan?.category_structure.length],
               ].map(([label, count]) => (
                 <div key={label as string} className="flex justify-between text-zinc-400">
@@ -586,7 +588,7 @@ function PlanCard({ plan, onApply, onSave, onDiscard, botMissing }: {
           {plan.mode === "replace" && <span className="text-[9px] font-bold text-orange-400 bg-orange-500/10 px-1.5 py-0.5 rounded">REPLACE</span>}
           {plan.mode === "add" && <span className="text-[9px] font-bold text-green-400 bg-green-500/10 px-1.5 py-0.5 rounded">ADD</span>}
         </div>
-        <span className="text-xs text-zinc-600 shrink-0 ml-2">{plan.roles.length}r · {textChannels.length + voiceChannels.length}c</span>
+        <span className="text-xs text-zinc-600 shrink-0 ml-2">{plan.roles.length}r · {(hasDetails ? allChannels.length : plan.channels.text.length + plan.channels.voice.length)}c</span>
       </button>
       {expanded && (
         <div className="px-3 pb-3 space-y-2.5">
