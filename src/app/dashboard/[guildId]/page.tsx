@@ -468,7 +468,7 @@ export default function GuildDashboard() {
 
       {/* Logs overlay */}
       <AnimatePresence>
-        {showLogs && executing && (
+        {showLogs && (
           <motion.div
             initial={{ y: "100%" }} animate={{ y: 0 }} exit={{ y: "100%" }}
             transition={{ type: "spring", damping: 25, stiffness: 300 }}
