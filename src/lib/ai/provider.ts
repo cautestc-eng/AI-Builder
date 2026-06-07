@@ -563,6 +563,10 @@ class OpenAICompatibleProvider implements AIProvider {
       return { type: "reject", reason: parsed.reason };
     }
 
+    if (parsed.type === "message" && typeof parsed.content === "string") {
+      return { type: "message", content: parsed.content };
+    }
+
     return {
       type: "plan",
       plan: {
