@@ -330,8 +330,8 @@ class OpenAICompatibleProvider implements AIProvider {
   private modelId: string;
   private baseUrl: string;
 
-  constructor(modelKey: string = "deepseek-chat") {
-    const model = MODELS[modelKey as ModelKey] || MODELS["deepseek-chat"];
+  constructor(modelKey: string = "llama-70b") {
+    const model = MODELS[modelKey as ModelKey] || MODELS["llama-70b"];
     this.modelId = model.id;
     if (model.provider === "deepseek") {
       this.apiKey = process.env.DEEPSEEK_API_KEY || "";
@@ -548,14 +548,21 @@ class OpenAICompatibleProvider implements AIProvider {
 }
 
 export function createAIProvider(modelKey?: string): AIProvider {
-  const key = modelKey || "deepseek-chat";
+  const key = modelKey || "llama-70b";
   const model = MODELS[key as ModelKey];
-  if (!model) return new OpenAICompatibleProvider("deepseek-chat");
+  if (!model) return new OpenAICompatibleProvider("llama-70b");
   if (model.provider === "deepseek") {
     if (!process.env.DEEPSEEK_API_KEY && process.env.GROQ_API_KEY) {
       console.warn("DEEPSEEK_API_KEY not set, falling back to Groq");
       return new OpenAICompatibleProvider("llama-70b");
     }
+    return new OpenAICompatibleProvider(key);
+  }
+  if (process.env.GROQ_API_KEY) {
+    return new OpenAICompatibleProvider(key);
+  }
+  throw new Error("No AI provider configured. Set GROQ_API_KEY or DEEPSEEK_API_KEY");
+}
     return new OpenAICompatibleProvider(key);
   }
   if (process.env.GROQ_API_KEY) {
