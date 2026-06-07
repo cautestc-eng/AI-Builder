@@ -18,7 +18,6 @@ import {
 import {
   Sheet, SheetContent, SheetHeader, SheetTitle,
 } from "@/components/ui/sheet";
-import { Textarea } from "@/components/ui/textarea";
 import { ServerPlan, LogEntry, ServerVersion, DiscordGuild } from "@/types";
 
 const TEMPLATES = [
@@ -525,11 +524,11 @@ export default function GuildDashboard() {
               Paste a valid server plan JSON. The bot will execute it directly.
             </DialogDescription>
           </DialogHeader>
-          <Textarea
+          <textarea
             value={jsonInput}
             onChange={(e) => { setJsonInput(e.target.value); setJsonError(""); }}
             placeholder='{"roles":[{"name":"@everyone","permissions":["VIEW_CHANNEL","SEND_MESSAGES"],"color":"#99AAB5"}],"channels":{"text":["general"],"voice":["General"]},"category_structure":[{"name":"General","channels":["general"]}]}'
-            className="bg-zinc-900 border-zinc-700 text-white text-xs min-h-[200px] max-h-[400px] font-mono"
+            className="bg-zinc-900 border-zinc-700 text-white text-xs min-h-[200px] max-h-[400px] font-mono w-full rounded-lg px-3 py-2.5 resize-y focus:outline-none focus:border-blue-500/50"
           />
           {jsonError && <p className="text-red-400 text-xs">{jsonError}</p>}
           <DialogFooter className="gap-2">
