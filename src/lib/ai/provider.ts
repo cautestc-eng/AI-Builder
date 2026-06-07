@@ -1,5 +1,6 @@
 import { ServerPlan } from "@/types";
 
+const NVIDIA_API_URL = "https://integrate.api.nvidia.com/v1";
 const OPENAI_API_URL = "https://api.groq.com/openai/v1";
 const DEEPSEEK_API_URL = "https://api.deepseek.com";
 
@@ -15,10 +16,11 @@ export type ConverseResult =
   | { type: "reject"; reason: string };
 
 const MODELS = {
-  "llama-70b": { id: "llama-3.3-70b-versatile", provider: "groq" },
-  "llama-8b": { id: "llama-3.1-8b-instant", provider: "groq" },
+  "llama-70b": { id: "meta/llama-3.3-70b-instruct", provider: "groq" },
+  "llama-8b": { id: "meta/llama-3.1-8b-instant", provider: "groq" },
   "mixtral": { id: "mixtral-8x7b-32768", provider: "groq" },
   "deepseek-chat": { id: "deepseek-v4-flash", provider: "deepseek" },
+  "nvidia-llama": { id: "meta/llama-3.1-70b-instruct", provider: "nvidia" },
 } as const;
 
 export type ModelKey = keyof typeof MODELS;
@@ -336,6 +338,9 @@ class OpenAICompatibleProvider implements AIProvider {
     if (model.provider === "deepseek") {
       this.apiKey = process.env.DEEPSEEK_API_KEY || "";
       this.baseUrl = DEEPSEEK_API_URL;
+    } else if (model.provider === "nvidia") {
+      this.apiKey = process.env.NVIDIA_API_KEY || "";
+      this.baseUrl = NVIDIA_API_URL;
     } else {
       this.apiKey = process.env.GROQ_API_KEY || "";
       this.baseUrl = OPENAI_API_URL;
@@ -548,12 +553,19 @@ class OpenAICompatibleProvider implements AIProvider {
 }
 
 export function createAIProvider(modelKey?: string): AIProvider {
-  const key = modelKey || "llama-70b";
+  const key = modelKey || "nvidia-llama";
   const model = MODELS[key as ModelKey];
-  if (!model) return new OpenAICompatibleProvider("llama-70b");
+  if (!model) return new OpenAICompatibleProvider("nvidia-llama");
   if (model.provider === "deepseek") {
-    if (!process.env.DEEPSEEK_API_KEY && process.env.GROQ_API_KEY) {
-      console.warn("DEEPSEEK_API_KEY not set, falling back to Groq");
+    if (!process.env.DEEPSEEK_API_KEY && process.env.NVIDIA_API_KEY) {
+      console.warn("DEEPSEEK_API_KEY not set, falling back to NVIDIA");
+      return new OpenAICompatibleProvider("nvidia-llama");
+    }
+    return new OpenAICompatibleProvider(key);
+  }
+  if (model.provider === "nvidia") {
+    if (!process.env.NVIDIA_API_KEY && process.env.GROQ_API_KEY) {
+      console.warn("NVIDIA_API_KEY not set, falling back to Groq");
       return new OpenAICompatibleProvider("llama-70b");
     }
     return new OpenAICompatibleProvider(key);
@@ -561,14 +573,7 @@ export function createAIProvider(modelKey?: string): AIProvider {
   if (process.env.GROQ_API_KEY) {
     return new OpenAICompatibleProvider(key);
   }
-  throw new Error("No AI provider configured. Set GROQ_API_KEY or DEEPSEEK_API_KEY");
-}
-    return new OpenAICompatibleProvider(key);
-  }
-  if (process.env.GROQ_API_KEY) {
-    return new OpenAICompatibleProvider(key);
-  }
-  throw new Error("No AI provider configured. Set DEEPSEEK_API_KEY or GROQ_API_KEY");
+  throw new Error("No AI provider configured. Set NVIDIA_API_KEY or GROQ_API_KEY or DEEPSEEK_API_KEY");
 }
 
 const TEMPLATES: Record<string, string> = {
