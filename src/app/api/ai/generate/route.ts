@@ -5,7 +5,7 @@ import { checkRateLimit, incrementRateLimit } from "@/lib/rate-limit";
 import { verifyRequest, stripIdentityFields } from "@/lib/auth";
 import { checkPromptSafety, checkPlanSafety } from "@/lib/safety";
 
-export const maxDuration = 60;
+export const maxDuration = 300;
 
 export async function POST(req: NextRequest) {
   let verified;

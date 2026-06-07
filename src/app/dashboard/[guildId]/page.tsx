@@ -146,7 +146,7 @@ export default function GuildDashboard() {
     try {
       const apiMessages = newMessages.filter(m => !m.plan).map(m => ({ role: m.role, content: m.content }));
       const controller = new AbortController();
-      const timeout = setTimeout(() => controller.abort(), 55000);
+      const timeout = setTimeout(() => controller.abort(), 290000);
       const res = await fetch("/api/ai/generate", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
