@@ -20,7 +20,7 @@ const MODELS = {
   "llama-8b": { id: "meta/llama-3.1-8b-instant", provider: "groq" },
   "mixtral": { id: "mixtral-8x7b-32768", provider: "groq" },
   "deepseek-chat": { id: "deepseek-v4-flash", provider: "deepseek" },
-  "nvidia-llama": { id: "meta/llama-3.1-70b-instruct", provider: "nvidia" },
+  "nvidia-llama": { id: "meta/llama-3.1-8b-instruct", provider: "nvidia" },
 } as const;
 
 export type ModelKey = keyof typeof MODELS;
