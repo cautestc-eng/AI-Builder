@@ -447,7 +447,7 @@ class OpenAICompatibleProvider implements AIProvider {
 }
 
 export function createAIProvider(modelKey?: string): AIProvider {
-  const key = modelKey || "nvidia-llama";
+  const key = modelKey || "deepseek-chat";
   const model = MODELS[key as ModelKey];
   if (!model) return new OpenAICompatibleProvider("nvidia-llama");
   if (model.provider === "deepseek") {
