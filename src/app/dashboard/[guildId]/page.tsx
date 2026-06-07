@@ -61,7 +61,6 @@ export default function GuildDashboard() {
     channels: string[]; roles: string[];
   } | null>(null);
   const [previewLoading, setPreviewLoading] = useState(false);
-  const [showJsonImport, setShowJsonImport] = useState(false);
   const [jsonInput, setJsonInput] = useState("");
   const [jsonError, setJsonError] = useState("");
   const [jsonExpanded, setJsonExpanded] = useState(false);
@@ -77,7 +76,7 @@ export default function GuildDashboard() {
   useEffect(() => {
     if (inputRef.current) {
       inputRef.current.style.height = "44px";
-      inputRef.current.style.height = `${Math.min(inputRef.current.scrollHeight, 160)}px`;
+      inputRef.current.style.height = `${Math.min(inputRef.current.scrollHeight, 360)}px`;
     }
   }, [prompt]);
 
@@ -421,8 +420,8 @@ export default function GuildDashboard() {
                 <Button onClick={() => {
                   try {
                     const parsed = JSON.parse(jsonInput);
-                    if (!parsed.roles || !parsed.channels || !parsed.category_structure) {
-                      setJsonError("Missing required fields: roles, channels, category_structure");
+                    if (!parsed.roles || !parsed.channels || !parsed.category_structure || !Array.isArray(parsed.channels.text) || !Array.isArray(parsed.channels.voice)) {
+                      setJsonError("Invalid plan: missing required fields (roles, channels.text, channels.voice, category_structure)");
                       return;
                     }
                     setMessages(prev => [...prev, { role: "assistant", content: "", plan: parsed as ServerPlan }]);
