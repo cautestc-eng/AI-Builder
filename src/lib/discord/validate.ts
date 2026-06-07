@@ -164,6 +164,8 @@ export function sanitizePlan(plan: ServerPlan): ServerPlan {
       name: r.name.trim(),
       permissions: r.permissions.filter((p) => ALLOWED_PERMISSIONS.has(p)),
       color: r.color,
+      hoist: r.hoist,
+      mentionable: r.mentionable,
     })),
     channels: {
       text: plan.channels.text.map((c) => c.trim()).filter(Boolean),
@@ -175,5 +177,25 @@ export function sanitizePlan(plan: ServerPlan): ServerPlan {
       channels: c.channels.map((ch) => ch.trim()).filter(Boolean),
     })),
     mode: plan.mode || "add",
+    channel_details: plan.channel_details?.map((cd) => ({
+      name: cd.name.trim(),
+      type: cd.type,
+      topic: cd.topic?.trim(),
+      nsfw: cd.nsfw,
+      slowmode: cd.slowmode,
+      parent: cd.parent?.trim(),
+      permission_overwrites: cd.permission_overwrites?.map((ow) => ({
+        role: ow.role.trim(),
+        allow: ow.allow.filter((p) => ALLOWED_PERMISSIONS.has(p)),
+        deny: ow.deny.filter((p) => ALLOWED_PERMISSIONS.has(p)),
+      })),
+    })),
+    auto_mod: plan.auto_mod?.map((r) => ({
+      type: r.type.trim(),
+      enabled: r.enabled,
+      limit: r.limit,
+      channel_exceptions: r.channel_exceptions?.map((c) => c.trim()).filter(Boolean),
+    })),
+    recommended_bots: plan.recommended_bots?.map((b) => b.trim()).filter(Boolean),
   };
 }

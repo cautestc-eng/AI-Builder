@@ -566,6 +566,15 @@ function PlanCard({ plan, onApply, onSave, onDiscard, botMissing }: {
   plan: ServerPlan; onApply: () => void; onSave: () => void; onDiscard: () => void; botMissing: boolean;
 }) {
   const [expanded, setExpanded] = useState(true);
+
+  const channelTypeIcon: Record<string, string> = { text: "#", voice: "🔊", announcement: "📢", forum: "🧵" };
+  const channelTypeLabel: Record<string, string> = { text: "text", voice: "voice", announcement: "news", forum: "forum" };
+
+  const allChannels = plan.channel_details || [];
+  const hasDetails = allChannels.length > 0;
+  const textChannels = hasDetails ? allChannels.filter(c => c.type === "text" || c.type === "announcement" || c.type === "forum") : plan.channels.text.map(n => ({ name: n, type: "text" as const }));
+  const voiceChannels = hasDetails ? allChannels.filter(c => c.type === "voice") : plan.channels.voice.map(n => ({ name: n, type: "voice" as const }));
+
   return (
     <div className="bg-zinc-900/60 border border-blue-500/20 rounded-xl overflow-hidden">
       <button onClick={() => setExpanded(!expanded)}
@@ -574,8 +583,10 @@ function PlanCard({ plan, onApply, onSave, onDiscard, botMissing }: {
         <div className="flex items-center gap-2 min-w-0">
           <Layers className="w-4 h-4 text-blue-400 shrink-0" />
           <span className="text-sm font-medium text-blue-300">Server Plan</span>
+          {plan.mode === "replace" && <span className="text-[9px] font-bold text-orange-400 bg-orange-500/10 px-1.5 py-0.5 rounded">REPLACE</span>}
+          {plan.mode === "add" && <span className="text-[9px] font-bold text-green-400 bg-green-500/10 px-1.5 py-0.5 rounded">ADD</span>}
         </div>
-        <span className="text-xs text-zinc-600 shrink-0 ml-2">{plan.roles.length}r · {plan.channels.text.length + plan.channels.voice.length}c</span>
+        <span className="text-xs text-zinc-600 shrink-0 ml-2">{plan.roles.length}r · {textChannels.length + voiceChannels.length}c</span>
       </button>
       {expanded && (
         <div className="px-3 pb-3 space-y-2.5">
@@ -586,31 +597,78 @@ function PlanCard({ plan, onApply, onSave, onDiscard, botMissing }: {
                 <span key={i} className="inline-flex items-center gap-1 px-2 py-0.5 bg-zinc-800/80 rounded text-xs text-zinc-300">
                   <span className="w-1.5 h-1.5 rounded-full shrink-0" style={{ backgroundColor: r.color || "#5865F2" }} />
                   {r.name}
+                  {r.hoist && <span className="text-[9px] text-blue-400 bg-blue-500/10 px-1 rounded">hoist</span>}
                 </span>
               ))}
             </div>
           </div>
-          <div>
-            <p className="text-[10px] text-zinc-500 uppercase tracking-wider mb-1"><Hash className="w-3 h-3 inline mr-1" />{plan.channels.text.length} Text</p>
-            <div className="flex flex-wrap gap-1.5">
-              {plan.channels.text.map((ch, i) => (
-                <span key={i} className="inline-flex items-center gap-1 px-2 py-0.5 bg-zinc-800/50 rounded text-xs text-zinc-400">
-                  # {ch}
-                  {plan.nsfw_channels?.includes(ch) && <span className="text-[9px] font-semibold text-pink-400 bg-pink-500/10 px-1 rounded">NSFW</span>}
-                </span>
-              ))}
-            </div>
-          </div>
-          {plan.channels.voice.length > 0 && (
+
+          {hasDetails ? (
             <div>
-              <p className="text-[10px] text-zinc-500 uppercase tracking-wider mb-1"><Volume2 className="w-3 h-3 inline mr-1" />{plan.channels.voice.length} Voice</p>
+              <p className="text-[10px] text-zinc-500 uppercase tracking-wider mb-1"><Hash className="w-3 h-3 inline mr-1" />{allChannels.length} Channels</p>
               <div className="flex flex-wrap gap-1.5">
-                {plan.channels.voice.map((ch, i) => (
-                  <span key={i} className="inline-flex items-center gap-1 px-2 py-0.5 bg-zinc-800/50 rounded text-xs text-zinc-400">🔊 {ch}</span>
+                {allChannels.filter(c => c.type === "text" || c.type === "announcement" || c.type === "forum").map((ch, i) => (
+                  <span key={i} title={ch.topic || ch.type} className="inline-flex items-center gap-1 px-2 py-0.5 bg-zinc-800/50 rounded text-xs text-zinc-400">
+                    {channelTypeIcon[ch.type] || "#"} {ch.name}
+                    {ch.type !== "text" && <span className="text-[9px] text-cyan-400 bg-cyan-500/10 px-1 rounded">{channelTypeLabel[ch.type]}</span>}
+                    {ch.nsfw && <span className="text-[9px] text-pink-400 bg-pink-500/10 px-1 rounded">NSFW</span>}
+                    {ch.slowmode && ch.slowmode > 0 && <span className="text-[9px] text-yellow-400 bg-yellow-500/10 px-1 rounded">{ch.slowmode}s</span>}
+                    {ch.permission_overwrites && ch.permission_overwrites.length > 0 && <span className="text-[9px] text-purple-400 bg-purple-500/10 px-1 rounded">restricted</span>}
+                  </span>
+                ))}
+              </div>
+            </div>
+          ) : (
+            <>
+              <div>
+                <p className="text-[10px] text-zinc-500 uppercase tracking-wider mb-1"><Hash className="w-3 h-3 inline mr-1" />{plan.channels.text.length} Text</p>
+                <div className="flex flex-wrap gap-1.5">
+                  {plan.channels.text.map((ch, i) => (
+                    <span key={i} className="inline-flex items-center gap-1 px-2 py-0.5 bg-zinc-800/50 rounded text-xs text-zinc-400">
+                      # {ch}
+                      {plan.nsfw_channels?.includes(ch) && <span className="text-[9px] text-pink-400 bg-pink-500/10 px-1 rounded">NSFW</span>}
+                    </span>
+                  ))}
+                </div>
+              </div>
+              {plan.channels.voice.length > 0 && (
+                <div>
+                  <p className="text-[10px] text-zinc-500 uppercase tracking-wider mb-1"><Volume2 className="w-3 h-3 inline mr-1" />{plan.channels.voice.length} Voice</p>
+                  <div className="flex flex-wrap gap-1.5">
+                    {plan.channels.voice.map((ch, i) => (
+                      <span key={i} className="inline-flex items-center gap-1 px-2 py-0.5 bg-zinc-800/50 rounded text-xs text-zinc-400">🔊 {ch}</span>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </>
+          )}
+
+          {plan.auto_mod && plan.auto_mod.length > 0 && (
+            <div>
+              <p className="text-[10px] text-zinc-500 uppercase tracking-wider mb-1"><AlertCircle className="w-3 h-3 inline mr-1" />Auto-Mod</p>
+              <div className="flex flex-wrap gap-1.5">
+                {plan.auto_mod.filter(r => r.enabled).map((r, i) => (
+                  <span key={i} className="inline-flex items-center gap-1 px-2 py-0.5 bg-amber-500/5 border border-amber-500/20 rounded text-xs text-amber-300">
+                    {r.type}{r.limit ? ` (${r.limit})` : ""}
+                    {r.channel_exceptions && r.channel_exceptions.length > 0 && <span className="text-[9px] text-zinc-400">ex: {r.channel_exceptions.join(",")}</span>}
+                  </span>
                 ))}
               </div>
             </div>
           )}
+
+          {plan.recommended_bots && plan.recommended_bots.length > 0 && (
+            <div>
+              <p className="text-[10px] text-zinc-500 uppercase tracking-wider mb-1"><Bot className="w-3 h-3 inline mr-1" />Recommended Bots</p>
+              <div className="flex flex-wrap gap-1.5">
+                {plan.recommended_bots.map((b, i) => (
+                  <span key={i} className="px-2 py-0.5 bg-indigo-500/5 border border-indigo-500/20 rounded text-xs text-indigo-300">{b}</span>
+                ))}
+              </div>
+            </div>
+          )}
+
           {plan.guild_settings && (
             <div className="text-[10px] text-zinc-500 space-y-0.5 border-t border-zinc-800 pt-2">
               {plan.guild_settings.verification_level && <p>Verification: {plan.guild_settings.verification_level}</p>}
@@ -620,6 +678,7 @@ function PlanCard({ plan, onApply, onSave, onDiscard, botMissing }: {
               {plan.guild_settings.afk_channel && <p>AFK channel: {plan.guild_settings.afk_channel}</p>}
             </div>
           )}
+
           <div className="flex gap-2 pt-1">
             <Button onClick={onApply} disabled={botMissing}
               className="bg-green-600 hover:bg-green-700 text-white h-8 text-xs flex-1"

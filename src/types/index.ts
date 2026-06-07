@@ -24,6 +24,29 @@ export interface GuildSettings {
   afk_timeout?: number;
 }
 
+export interface PermissionOverwrite {
+  role: string;
+  allow: string[];
+  deny: string[];
+}
+
+export interface ChannelDetail {
+  name: string;
+  type: "text" | "voice" | "announcement" | "forum";
+  topic?: string;
+  nsfw?: boolean;
+  slowmode?: number;
+  parent?: string;
+  permission_overwrites?: PermissionOverwrite[];
+}
+
+export interface AutoModRule {
+  type: string;
+  enabled: boolean;
+  limit?: number;
+  channel_exceptions?: string[];
+}
+
 export interface ServerPlan {
   roles: ServerRole[];
   channels: {
@@ -34,12 +57,17 @@ export interface ServerPlan {
   category_structure: ServerCategory[];
   guild_settings?: GuildSettings;
   mode?: "add" | "replace";
+  channel_details?: ChannelDetail[];
+  auto_mod?: AutoModRule[];
+  recommended_bots?: string[];
 }
 
 export interface ServerRole {
   name: string;
   permissions: string[];
   color?: string;
+  hoist?: boolean;
+  mentionable?: boolean;
 }
 
 export interface ServerCategory {

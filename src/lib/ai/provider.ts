@@ -163,7 +163,56 @@ NEVER use clarify (OUTPUT B) for greetings or casual chat. Use this OUTPUT 0 ins
 
 === OUTPUT A: GENERATE PLAN ===
 Use this when you can make a reasonable server structure. This is the DEFAULT choice.
-{"mode":"add","roles":[{"name":"@everyone","permissions":["VIEW_CHANNEL","SEND_MESSAGES","ADD_REACTIONS","READ_MESSAGE_HISTORY","CONNECT","SPEAK"],"color":"#99AAB5"},{"name":"Admin","permissions":["ADMINISTRATOR"],"color":"#FF0000"}],"channels":{"text":["general","announcements"],"voice":["General"]},"nsfw_channels":[],"category_structure":[{"name":"General","channels":["general","announcements"]}],"guild_settings":{"verification_level":"low","default_message_notifications":"only_mentions","explicit_content_filter":"members_without_roles"}}
+
+You can use either the simple format or the rich channel_details format.
+
+SIMPLE FORMAT (for simple requests):
+{"mode":"add","roles":[{"name":"@everyone","permissions":["VIEW_CHANNEL","SEND_MESSAGES","ADD_REACTIONS","READ_MESSAGE_HISTORY","CONNECT","SPEAK"],"color":"#99AAB5"},{"name":"Admin","permissions":["ADMINISTRATOR"],"color":"#FF0000"}],"channels":{"text":["general","announcements"],"voice":["General"]},"nsfw_channels":[],"category_structure":[{"name":"General","channels":["general","announcements"]}],"guild_settings":{"verification_level":"low"}}
+
+RICH FORMAT (for detailed requests with permission overwrites, channel types, topics, auto-mod, bots):
+{"mode":"add","roles":[{"name":"@everyone","permissions":["VIEW_CHANNEL","SEND_MESSAGES","ADD_REACTIONS","READ_MESSAGE_HISTORY","CONNECT","SPEAK"],"color":"#99AAB5","hoist":false,"mentionable":false},{"name":"Admin","permissions":["ADMINISTRATOR"],"color":"#FF0000","hoist":true}],"channels":{"text":["general","announcements"],"voice":["General"]},"category_structure":[{"name":"General","channels":["general","announcements"]}],"channel_details":[{"name":"rules","type":"text","topic":"Server rules — read only","slowmode":0,"nsfw":false,"parent":"Information","permission_overwrites":[{"role":"@everyone","allow":["VIEW_CHANNEL","READ_MESSAGE_HISTORY"],"deny":["SEND_MESSAGES"]}]},{"name":"announcements","type":"announcement","topic":"Official announcements","parent":"Information","permission_overwrites":[{"role":"@everyone","allow":["VIEW_CHANNEL","READ_MESSAGE_HISTORY"],"deny":["SEND_MESSAGES"]},{"role":"Admin","allow":["SEND_MESSAGES","MANAGE_MESSAGES"]}]},{"name":"General","type":"voice","parent":"Voice Channels"},{"name":"tickets","type":"forum","topic":"Open a ticket for support","parent":"Support"}],"auto_mod":[{"type":"spam","enabled":true},{"type":"mass_mentions","enabled":true,"limit":5},{"type":"invite_links","enabled":true,"channel_exceptions":["invites"]},{"type":"nsfw","enabled":true}],"recommended_bots":["GiveawayBot","MEE6","TicketTool","Dyno","Carl-bot"]}
+
+CHANNEL TYPES:
+- "text": regular text channel (type 0)
+- "voice": voice channel (type 2)
+- "announcement": announcement/news channel (type 5) — only @everyone can read, only specific roles can post
+- "forum": forum channel (type 15) — for tickets, discussions, Q&A
+
+ROLE FIELDS:
+- "hoist": boolean - whether the role is displayed separately in the sidebar
+- "mentionable": boolean - whether the role can be @mentioned by anyone
+
+CHANNEL DETAIL FIELDS:
+- "name": channel name (lowercase-kebab for text/announcement/forum, Title Case for voice)
+- "type": one of the channel types above
+- "topic": channel topic/description (optional)
+- "slowmode": slowmode in seconds, 0-21600 (optional)
+- "nsfw": boolean (optional, only for text/announcement channels)
+- "parent": category name this channel belongs to (must match a category in category_structure)
+- "permission_overwrites": array of role permission overrides (optional)
+
+PERMISSION OVERWRITES:
+Each overwrite has:
+- "role": role name (must exist in the roles array or be @everyone)
+- "allow": permissions to explicitly allow
+- "deny": permissions to explicitly deny
+Both allow and deny are arrays of permission strings.
+
+AUTO-MOD RULES:
+- "spam": anti-spam enforcement
+- "mass_mentions": limit on @mentions per message
+- "invite_links": block Discord invite links (with channel_exceptions for allowed channels)
+- "nsfw": filter explicit content
+- "keywords": block specific keywords (not implemented yet)
+
+RECOMMENDED BOTS:
+- Array of bot names as strings like ["GiveawayBot","MEE6","TicketTool","Dyno","Carl-bot","Sapphire"]
+
+=== USING channel_details ===
+- channel_details is OPTIONAL. Only use it when the user requests permission overrides, specific channel types, topics, or detailed channel config.
+- When channel_details is used, channels.text, channels.voice, and category_structure are still REQUIRED but can have minimal entries as fallbacks. The system reads from channel_details first.
+- Each channel in channel_details must belong to a category via the "parent" field. The parent name must exist in category_structure.
+- permission_overwrites is OPTIONAL per channel. Only include when the user specifies who can/cannot access or send messages.
 
 MODE RULES:
 - "mode":"add" (DEFAULT): The bot ONLY adds new channels/roles and updates existing ones. Never deletes anything. Use this for normal requests like "add a general channel", "create a moderator role", "make a gaming category".
@@ -174,8 +223,8 @@ You can also include guild_settings to configure the server:
 - "verification_level": "none" | "low" | "medium" | "high" | "very_high"
 - "default_message_notifications": "all" | "only_mentions"
 - "explicit_content_filter": "disabled" | "members_without_roles" | "all_members"
-- "system_channel": channel name string (must exist in channels.text)
-- "afk_channel": voice channel name string (must exist in channels.voice)
+- "system_channel": channel name string
+- "afk_channel": voice channel name string
 - "afk_timeout": number in seconds (60-14400)
 All guild_settings fields are optional. Omit if not specified.
 
@@ -259,15 +308,20 @@ Step 6: Did the user say something truly empty like "idk", "not sure", "I don't 
 - Include the channels from previous responses unless the user asks to change/remove them. If user says "add a general channel", keep all existing channels AND add general.
 - text channels: lowercase-kebab (e.g. "general", "looking-for-group")
 - voice channels: Title Case (e.g. "General", "Competitive Gaming")
+- announcement channels: lowercase-kebab (e.g. "announcements", "update-news")
+- forum channels: lowercase-kebab (e.g. "tickets", "support-forum", "q-and-a")
 - categories: Title Case (e.g. "Information", "Voice Channels")
 - Always include @everyone role first
 - @everyone gets basic perms only: VIEW_CHANNEL, SEND_MESSAGES, ADD_REACTIONS, READ_MESSAGE_HISTORY, CONNECT, SPEAK
 - Normal range: 2-8 roles, 2-10 text channels, 1-5 voice channels. BUT these are soft guidelines — follow the user's explicit request. If user asks for 0 channels, output []. If user asks for 50 channels, output all 50 names in the array.
-- Every channel belongs to exactly one category
+- Every channel belongs to exactly one category (use the "parent" field in channel_details)
 - CRITICAL: The "channels" array inside each category entry MUST reference channel names that exist in channels.text or channels.voice. A channel must appear in BOTH its category AND the top-level text/voice array.
 - Never duplicate channel names across categories
 - nsfw_channels is an array of text channel names that are age-restricted. Use "nsfw-" prefix for NSFW channels.
 - Include nsfw_channels in every output. Use empty array [] if no NSFW channels.
+- When using channel_details with permission_overwrites, the role names in overwrites must exist in the roles array.
+- Use hoist:true for important roles (Admin, Mod, etc.) so they show separately in the member list.
+- recommended_bots: suggest popular Discord bots that match the server's needs.
 
 === PERMISSIONS (exact strings only) ===
 VIEW_CHANNEL, SEND_MESSAGES, MANAGE_MESSAGES, MENTION_EVERYONE, ADD_REACTIONS, EMBED_LINKS, ATTACH_FILES, READ_MESSAGE_HISTORY, CONNECT, SPEAK, MUTE_MEMBERS, DEAFEN_MEMBERS, MOVE_MEMBERS, MANAGE_CHANNELS, MANAGE_ROLES, MANAGE_GUILD, ADMINISTRATOR, KICK_MEMBERS, BAN_MEMBERS, CREATE_INSTANT_INVITE, PRIORITY_SPEAKER, STREAM, CHANGE_NICKNAME, MANAGE_NICKNAMES, MANAGE_WEBHOOKS, MANAGE_EMOJIS_AND_STICKERS, USE_EXTERNAL_EMOJIS, USE_APPLICATION_COMMANDS, MODERATE_MEMBERS, VIEW_AUDIT_LOG, MANAGE_THREADS, CREATE_PUBLIC_THREADS, CREATE_PRIVATE_THREADS, SEND_MESSAGES_IN_THREADS, USE_EMBEDDED_ACTIVITIES, REQUEST_TO_SPEAK, USE_VAD, SEND_TTS_MESSAGES, VIEW_GUILD_INSIGHTS
@@ -458,6 +512,9 @@ class OpenAICompatibleProvider implements AIProvider {
         category_structure: parsed.category_structure || [],
         guild_settings: parsed.guild_settings || undefined,
         mode: parsed.mode || "add",
+        channel_details: parsed.channel_details || undefined,
+        auto_mod: parsed.auto_mod || undefined,
+        recommended_bots: parsed.recommended_bots || undefined,
       };
     } catch (e: any) {
       throw new Error(`Failed to parse AI JSON: ${e.message}. Raw: ${jsonStr.slice(0, 200)}`);
@@ -518,6 +575,9 @@ class OpenAICompatibleProvider implements AIProvider {
         category_structure: parsed.category_structure || [],
         guild_settings: parsed.guild_settings || undefined,
         mode: parsed.mode || "add",
+        channel_details: parsed.channel_details || undefined,
+        auto_mod: parsed.auto_mod || undefined,
+        recommended_bots: parsed.recommended_bots || undefined,
       },
     };
   }
