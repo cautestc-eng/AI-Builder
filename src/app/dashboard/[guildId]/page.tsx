@@ -145,11 +145,15 @@ export default function GuildDashboard() {
 
     try {
       const apiMessages = newMessages.filter(m => !m.plan).map(m => ({ role: m.role, content: m.content }));
+      const controller = new AbortController();
+      const timeout = setTimeout(() => controller.abort(), 55000);
       const res = await fetch("/api/ai/generate", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ messages: apiMessages, mode: "build", model: "nvidia-llama" }),
+        signal: controller.signal,
       });
+      clearTimeout(timeout);
       const data = await res.json();
       if (!res.ok) {
         setMessages((prev) => [...prev, { role: "assistant", content: data.error || "Failed" }]);
@@ -166,8 +170,12 @@ export default function GuildDashboard() {
         setMessages((prev) => [...prev, { role: "assistant", content: "", plan: data.plan as ServerPlan }]);
         if (data.warnings?.length) data.warnings.forEach((w: string) => addLog("error", `Warning: ${w}`));
       }
-    } catch {
-      setMessages((prev) => [...prev, { role: "assistant", content: "Network error" }]);
+    } catch (err: any) {
+      if (err?.name === "AbortError") {
+        setMessages((prev) => [...prev, { role: "assistant", content: "Request timed out — the AI took too long. Try a simpler prompt." }]);
+      } else {
+        setMessages((prev) => [...prev, { role: "assistant", content: "Network error — check your connection and try again." }]);
+      }
     } finally { setLoading(false); }
   }, [prompt, messages]);
 
