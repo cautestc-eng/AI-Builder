@@ -137,6 +137,7 @@ export default function GuildDashboard() {
 
     const userMsg = prompt.trim();
     setPrompt("");
+    if (inputRef.current) { inputRef.current.style.height = "44px"; }
     const newMessages: ChatMessage[] = [...messages, { role: "user", content: userMsg }];
     setMessages(newMessages);
     setLoading(true);
@@ -404,9 +405,9 @@ export default function GuildDashboard() {
               onChange={(e) => {
                 setPrompt(e.target.value);
                 e.currentTarget.style.height = "44px";
-                e.currentTarget.style.height = `${Math.min(e.currentTarget.scrollHeight, 160)}px`;
+                e.currentTarget.style.height = `${Math.min(e.currentTarget.scrollHeight, 360)}px`;
               }}
-              className="bg-zinc-900 border border-zinc-700 text-white min-h-[44px] max-h-[160px] resize-none text-sm w-full rounded-lg px-3 py-2.5 focus:outline-none focus:border-blue-500/50 placeholder-zinc-600 overflow-y-auto"
+              className="bg-zinc-900 border border-zinc-700 text-white min-h-[44px] max-h-[360px] resize-none text-sm w-full rounded-lg px-3 py-2.5 focus:outline-none focus:border-blue-500/50 placeholder-zinc-600 overflow-y-auto"
               rows={1}
               onKeyDown={(e) => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); handleGenerate(); } }}
             />
