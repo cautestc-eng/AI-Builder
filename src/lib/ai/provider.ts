@@ -17,7 +17,7 @@ export type ConverseResult =
 
 const MODELS = {
   "llama-70b": { id: "llama-3.3-70b-versatile", provider: "groq" },
-  "llama-8b": { id: "meta/llama-3.1-8b-instant", provider: "groq" },
+  "llama-8b": { id: "llama-3.1-8b-instant", provider: "groq" },
   "mixtral": { id: "mixtral-8x7b-32768", provider: "groq" },
   "deepseek-chat": { id: "deepseek-v4-flash", provider: "deepseek" },
   "nvidia-llama": { id: "meta/llama-3.1-8b-instruct", provider: "nvidia" },
